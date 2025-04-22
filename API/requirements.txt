@@ -1,0 +1,4 @@
+elasticsearch==8.8.0
+textract==1.6.5
+tqdm==4.66.1
+python-dateutil==2.8.2
