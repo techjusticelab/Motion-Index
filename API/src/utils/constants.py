@@ -1,3 +1,6 @@
+"""
+Constants used throughout the application.
+"""
 from typing import Dict, Set, Any
 
 # File Processing Constants
@@ -7,15 +10,7 @@ SUPPORTED_FORMATS: Set[str] = {
     '.wpd', '.wp', '.wp5', '.pptx', '.ppt', '.xlsx', '.xls'
 }
 
-# Metadata Extraction Patterns
-METADATA_PATTERNS: Dict[str, str] = {
-    'case_name': r'(?:Case[:\s]+|Matter of:?|In re:?)([A-Za-z0-9\s\.,]+v\.?[A-Za-z0-9\s\.,]+)',
-    'court': r'(?:COURT:?|Court of:?|IN THE)([A-Za-z\s]+COURT[A-Za-z\s]*)',
-    'judge': r'(?:Judge|JUDGE|Hon\.|Honorable)[:\s]+([A-Za-z\s\.]+)',
-    'date': r'(?:Date[d]?:?|Filed on:?)[\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\w+ \d{1,2},? \d{4})',
-    'subject': r'(?:Subject:?|RE:|REGARDING:?)[\s]+([A-Za-z0-9\s\.,]+)'
-}
-
+# Document Types
 DOCUMENT_TYPES = {
     'motion': 'Motion',
     'petition': 'Petition',
@@ -28,15 +23,15 @@ DOCUMENT_TYPES = {
     'opposition': 'Opposition',
     'complaint': 'Complaint',
     'answer': 'Answer',
-    'discovery_request': 'Discovery Request', # e.g., Interrogatories, Request for Production
+    'discovery_request': 'Discovery Request',
     'discovery_response': 'Discovery Response',
-    'notice': 'Notice', # e.g., Notice of Hearing, Notice of Appearance
+    'notice': 'Notice',
     'declaration': 'Declaration',
     'affidavit': 'Affidavit',
     'judgment': 'Judgment',
     'transcript': 'Transcript',
     'settlement_agreement': 'Settlement Agreement',
-    'unknown': 'Unknown' # Default/fallback type
+    'unknown': 'Unknown'
 }
 
 # File Extension Mappings
@@ -71,9 +66,6 @@ EXTENSION_CATEGORIES: Dict[str, str] = {
     '.pptx': 'Presentation'
 }
 
-# Path-based Document Categories
-
-
 # Elasticsearch Constants
 ES_DEFAULT_HOST = "localhost"
 ES_DEFAULT_PORT = 9200
@@ -90,12 +82,14 @@ ES_DOCUMENT_MAPPING = {
             "chunk_id": {"type": "integer"},
             "text": {"type": "text", "analyzer": "english"},
             "doc_type": {"type": "keyword"},
+            "s3_uri": {"type": "keyword"},
             "metadata": {
                 "properties": {
                     "document_name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
                     "subject": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
                     "status": {"type": "keyword"},
                     "case_name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+                    "case_number": {"type": "keyword"},
                     "author": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
                     "judge": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
                     "court": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
@@ -112,3 +106,6 @@ ES_DOCUMENT_MAPPING = {
 # Processing Constants
 DEFAULT_MAX_WORKERS = 4
 DEFAULT_BATCH_SIZE = 100
+
+# LLM Constants
+OPENAI_MODEL = "gpt-3.5-turbo"

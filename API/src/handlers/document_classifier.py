@@ -1,42 +1,42 @@
-import os
+"""
+Document classifier for legal document classification and metadata extraction.
+"""
 import re
 import json
+import logging
+from typing import Dict, Any, Optional, Union
 import openai
-from openai import OpenAI
-from typing import Dict, Any, Optional 
-from constants import DOCUMENT_TYPES
 
+from src.utils.constants import DOCUMENT_TYPES, OPENAI_MODEL
 
+# Configure logging
+logger = logging.getLogger("document_classifier")
+
+# List of allowed document types for classification
 ALLOWED_TYPES_LIST = list(DOCUMENT_TYPES.values())
 
-OPENAI_MODEL = "gpt-3.5-turbo"
 
-# --- LLM-Based Classification and Extraction --
-
-def classify_and_extract_by_llm(text: str, client: OpenAI) -> Dict[str, Optional[Any]]:
+def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[Any]]:
     """
-
-    NOTICE: AI GENERATED DOCSTRINGS
-
     Classifies the document AND extracts information using the OpenAI API.
-
+    
     Args:
         text: The full document text (or a significant portion).
         client: An initialized OpenAI client instance.
-
+        
     Returns:
         A dictionary containing the classified document type and other extracted fields,
         or a dictionary with 'document_type' as 'Unknown' if parsing fails.
     """
-    print("Attempting LLM classification and extraction...")
+    logger.info("Attempting LLM classification and extraction...")
 
     # Define the desired JSON structure
     json_format_instructions = f"""
     {{
         "document_type": "...", // MUST be one of [{', '.join(ALLOWED_TYPES_LIST)}]
-        "subject": "...",       // A concise summary (5-10 words) of the document's main topic or purpose. Look at titles, 'Re:' lines, or the introductory paragraph. Examples: 'Motion to Dismiss Complaint', 'Response to Interrogatories', 'Order Granting Summary Judgment'. Null if not clearly identifiable.
+        "subject": "...",       // A concise summary (5-10 words) of the document's main topic or purpose
         "status": "...",        // e.g., Granted, Denied, Filed, Served, Proposed (null if not applicable/found)
-        "timestamp": "...",     // Date mentioned in the document, preferably filing/signing date (YYYY-MM-DD or original format, null if not found)
+        "timestamp": "...",     // Date mentioned in the document, preferably filing/signing date (YYYY-MM-DD or original format)
         "case_name": "...",     // e.g., "Plaintiff Corp. v. Defendant Inc." (null if not applicable/found)
         "case_number": "...",   // e.g., "3:24-cv-01234-ABC", "INF-xxxxxxx" (null if not found)
         "author": "...",        // Authoring attorney, law firm, or entity (null if not found)
@@ -60,7 +60,7 @@ def classify_and_extract_by_llm(text: str, client: OpenAI) -> Dict[str, Optional
 
     Document Text:
     ---
-    {text[:8000]} # Limit text length (adjust based on typical document structure and token limits/cost)
+    {text[:8000]} # Limit text length to avoid token limits
     ---
 
     JSON Output:
@@ -71,14 +71,16 @@ def classify_and_extract_by_llm(text: str, client: OpenAI) -> Dict[str, Optional
         instruction_keys = json.loads(json_format_instructions).keys()
     except json.JSONDecodeError:
         # Fallback keys if instruction string is somehow invalid
-        instruction_keys = ["document_type", "subject", "status", "timestamp", "case_name", "case_number", "author", "judge", "court"]
+        instruction_keys = ["document_type", "subject", "status", "timestamp", "case_name", 
+                           "case_number", "author", "judge", "court"]
 
     for key in instruction_keys:
         if key != "document_type":
             default_result[key] = None
 
     try:
-        response = client.chat.completions.create(
+        # For OpenAI v0.28.0
+        response = client.ChatCompletion.create(
             model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": "You are an expert legal document analyzer. You meticulously classify documents and extract key information based on the provided text, responding only in the specified valid JSON format."},
@@ -86,14 +88,14 @@ def classify_and_extract_by_llm(text: str, client: OpenAI) -> Dict[str, Optional
             ],
             temperature=0.1,
             max_tokens=600,
-            response_format={"type": "json_object"},
             n=1,
             stop=None,
         )
-        llm_response_content = response.choices[0].message.content.strip()
-        print(f"Raw LLM Response:\n{llm_response_content}") 
+        llm_response_content = response.choices[0]['message']['content'].strip()
+        logger.debug(f"Raw LLM Response:\n{llm_response_content}")
+        
         try:
-          
+            # Clean up response if needed
             if llm_response_content.startswith("```json"):
                 llm_response_content = llm_response_content[7:]
             if llm_response_content.endswith("```"):
@@ -101,57 +103,63 @@ def classify_and_extract_by_llm(text: str, client: OpenAI) -> Dict[str, Optional
             llm_response_content = llm_response_content.strip()
 
             parsed_json = json.loads(llm_response_content)
-
             
+            # Create final result with all expected fields
             final_result = {}
             for key in default_result:
                 final_result[key] = parsed_json.get(key, None)
 
             # Validate the document_type
             if final_result.get("document_type") not in ALLOWED_TYPES_LIST:
-                 print(f"LLM Warning: Invalid or missing 'document_type' in response: {final_result.get('document_type')}")
-              
-                 found_type_in_raw = next((t for t in ALLOWED_TYPES_LIST if re.search(r'\b' + re.escape(t) + r'\b', llm_response_content, re.IGNORECASE)), DOCUMENT_TYPES['unknown'])
-                 final_result['document_type'] = found_type_in_raw
+                logger.warning(f"Invalid or missing 'document_type' in response: {final_result.get('document_type')}")
+                # Try to extract a valid type from the raw response
+                found_type_in_raw = next(
+                    (t for t in ALLOWED_TYPES_LIST if re.search(r'\b' + re.escape(t) + r'\b', llm_response_content, re.IGNORECASE)), 
+                    DOCUMENT_TYPES['unknown']
+                )
+                final_result['document_type'] = found_type_in_raw
 
-          
+            # Clean up values
             for key, value in final_result.items():
                 if value == "null" or value == "N/A" or value == "" or (isinstance(value, str) and not value.strip()):
-                    final_result[key] = None #
+                    final_result[key] = None
 
-            print(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}'")
+            logger.info(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}'")
             return final_result
 
         except json.JSONDecodeError as json_e:
-            print(f"LLM Error: Failed to parse JSON response: {json_e}")
-            print(f"LLM Response that failed parsing:\n---\n{llm_response_content}\n---")
-            found_type = next((t for t in ALLOWED_TYPES_LIST if re.search(r'\b' + re.escape(t) + r'\b', llm_response_content, re.IGNORECASE)), DOCUMENT_TYPES['unknown'])
+            logger.error(f"Failed to parse JSON response: {json_e}")
+            logger.debug(f"Response that failed parsing:\n---\n{llm_response_content}\n---")
+            # Try to extract document type from raw response
+            found_type = next(
+                (t for t in ALLOWED_TYPES_LIST if re.search(r'\b' + re.escape(t) + r'\b', llm_response_content, re.IGNORECASE)), 
+                DOCUMENT_TYPES['unknown']
+            )
             default_result['document_type'] = found_type
-            print(f"LLM Fallback: Extracted type '{found_type}' from raw response.")
+            logger.info(f"Fallback: Extracted type '{found_type}' from raw response.")
             return default_result
 
     except openai.APIError as e:
-        print(f"OpenAI API Error: {e}")
+        logger.error(f"OpenAI API Error: {e}")
         return default_result
     except Exception as e:
-        print(f"An unexpected error occurred during LLM processing: {e}")
+        logger.error(f"An unexpected error occurred during LLM processing: {e}")
         return default_result
-
 
 
 def process_document_llm(
     document_name: str,
     document_text: str,
-    openai_client: OpenAI
+    openai_client: Any
 ) -> Dict[str, Optional[Any]]:
     """
-    Classifies and extracts information from a legal document using ONLY the LLM API.
-
+    Classifies and extracts information from a legal document using the LLM API.
+    
     Args:
         document_name: The name/identifier of the document (e.g., filename).
         document_text: The full text content of the document.
         openai_client: An initialized OpenAI client instance.
-
+        
     Returns:
         A dictionary containing the classification and extracted fields.
     """
@@ -174,17 +182,17 @@ def process_document_llm(
 
     llm_extracted_data = classify_and_extract_by_llm(document_text, openai_client)
 
-    final_result = result_structure.copy() # Start with the base structure
+    final_result = result_structure.copy()  # Start with the base structure
     for key, value in llm_extracted_data.items():
-         if key in final_result: # Only update keys defined in our initial structure
-             # Ensure value is not just whitespace before assigning
-             if value is not None and str(value).strip():
-                 final_result[key] = value
-         else:
-             print(f"Warning: LLM returned unexpected key '{key}' - ignoring.")
+        if key in final_result:  # Only update keys defined in our initial structure
+            # Ensure value is not just whitespace before assigning
+            if value is not None and (not isinstance(value, str) or value.strip()):
+                final_result[key] = value
+        else:
+            logger.warning(f"LLM returned unexpected key '{key}' - ignoring.")
 
     # Final check - if type is still Unknown after LLM, log it
     if final_result["document_type"] == DOCUMENT_TYPES['unknown']:
-         print("LLM returned 'Unknown' or classification failed.")
+        logger.warning("LLM returned 'Unknown' or classification failed.")
 
     return final_result
