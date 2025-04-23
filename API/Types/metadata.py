@@ -6,14 +6,16 @@ class Metadata:
         self,
         document_name: str,
         subject: str,
+        status: Optional[str] = None,
         timestamp: Optional[datetime] = None,
         case_name: Optional[str] = None,
         author: Optional[str] = None,
-        judge: Optional[str] = None, # WARNING: This probso needs indexing #
-        court: Optional[str] = None # WARNING: This probso needs indexing
+        judge: Optional[str] = None,
+        court: Optional[str] = None
     ):
         self.document_name = document_name
         self.subject = subject
+        self.status = status
         
         # Optional fields with defaults
         self.timestamp = timestamp or datetime.now()

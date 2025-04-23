@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 
 # Import constants
-from constants import (
+from Documents.constants import (
     MAX_FILE_SIZE_DEFAULT, 
     SUPPORTED_FORMATS, 
     METADATA_PATTERNS,
@@ -73,21 +73,18 @@ class FileProcessor:
             
         return False
     
-    def extract_text(self, file_path: str)]:
+    def extract_text(self, file_path: str) -> str:
         """Extract text from a document file"""
         if not self.can_process(file_path):
             logger.warning(f"Cannot process file: {file_path}")
-            return "", {}
+            return ""
             
         text = ""
         try:
             text = textract.process(file_path, encoding='utf-8').decode('utf-8')
         except Exception as e:
             logger.error(f"Error extracting text from {file_path}: {e}")
-            return "", {}
+            return ""
             
-        # Extract potential metadata from text
-        # metadata = self.extract_metadata_from_text(text, file_path)
-        
         return text
     

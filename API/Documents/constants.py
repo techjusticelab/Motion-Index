@@ -16,6 +16,29 @@ METADATA_PATTERNS: Dict[str, str] = {
     'subject': r'(?:Subject:?|RE:|REGARDING:?)[\s]+([A-Za-z0-9\s\.,]+)'
 }
 
+DOCUMENT_TYPES = {
+    'motion': 'Motion',
+    'petition': 'Petition',
+    'order': 'Order',
+    'brief': 'Brief',
+    'report': 'Report',
+    'exhibit': 'Exhibit',
+    'memorandum': 'Memorandum',
+    'response': 'Response',
+    'opposition': 'Opposition',
+    'complaint': 'Complaint',
+    'answer': 'Answer',
+    'discovery_request': 'Discovery Request', # e.g., Interrogatories, Request for Production
+    'discovery_response': 'Discovery Response',
+    'notice': 'Notice', # e.g., Notice of Hearing, Notice of Appearance
+    'declaration': 'Declaration',
+    'affidavit': 'Affidavit',
+    'judgment': 'Judgment',
+    'transcript': 'Transcript',
+    'settlement_agreement': 'Settlement Agreement',
+    'unknown': 'Unknown' # Default/fallback type
+}
+
 # File Extension Mappings
 MIME_TYPES: Dict[str, str] = {
     '.wpd': 'application/x-wordperfect',
@@ -49,14 +72,7 @@ EXTENSION_CATEGORIES: Dict[str, str] = {
 }
 
 # Path-based Document Categories
-PATH_CATEGORIES: Dict[str, str] = {
-    'motion': 'Motion',
-    'petition': 'Petition',
-    'order': 'Order',
-    'brief': 'Brief',
-    'report': 'Report',
-    'exhibit': 'Exhibit'
-}
+
 
 # Elasticsearch Constants
 ES_DEFAULT_HOST = "localhost"

@@ -9,21 +9,20 @@ import json
 from datetime import datetime
 
 # Import our custom modules
-from file_processor import FileProcessor
+from Documents.file_processor import FileProcessor
 from Types.document import Document
 from Types.metadata import Metadata
-from elasticsearch_handler import ElasticsearchHandler
+from Documents.elasticsearch_handler import ElasticsearchHandler
 
 # Import constants
-from constants import (
+from Documents.constants import (
     MAX_FILE_SIZE_DEFAULT,
     ES_DEFAULT_HOST,
     ES_DEFAULT_PORT,
     ES_DEFAULT_INDEX,
     DEFAULT_MAX_WORKERS,
     DEFAULT_BATCH_SIZE,
-    EXTENSION_CATEGORIES,
-    PATH_CATEGORIES
+    EXTENSION_CATEGORIES
 )
 
 # Configure logging
@@ -84,12 +83,6 @@ class DocumentProcessor:
         path = Path(file_path)
         ext = path.suffix.lower()
         
-        # Check for specific document types in path
-        path_str = str(path).lower()
-        for key_term, category in PATH_CATEGORIES.items():
-            if key_term in path_str:
-                return category
-            
         # Fall back to extension-based categorization
         return EXTENSION_CATEGORIES.get(ext, 'Document')
     
@@ -116,7 +109,9 @@ class DocumentProcessor:
                 self.stats["failed"] += 1
                 return None
             
-            metadata_obj = document_type_extraction.generate_metadata(text, file_path)
+            # Create basic metadata with filename
+            filename = Path(file_path).name
+            metadata_obj = Metadata(document_name=filename, subject="Unknown", status=None)
           
             # Determine document category
             category = self.get_file_category(file_path)

@@ -11,7 +11,6 @@ class Document:
         text: str,
         metadata: Metadata,
         doc_type: str = "document",
-       # category: Optional[str] = None,
         chunk_id: int = 0,
         embedding: Optional[List[float]] = None,
         hash_value: Optional[str] = None,

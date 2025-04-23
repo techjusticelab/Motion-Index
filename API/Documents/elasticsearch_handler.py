@@ -1,8 +1,6 @@
 from elasticsearch import Elasticsearch, helpers
 import logging
-from typing import List, Dict, Any, Generator, Optional
-import os
-from Types.document import Document
+from typing import List, Dict, Any, Optional
 import json
 
 # Import constants
