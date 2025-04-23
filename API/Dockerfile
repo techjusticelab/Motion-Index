@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libtesseract-dev \
     libmagic1 \
+    antiword \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file
