@@ -109,25 +109,15 @@ class DocumentProcessor:
                 return None
             
             # Extract text and metadata
-            text, metadata_dict = self.file_processor.extract_text(file_path)
+            text = self.file_processor.extract_text(file_path)
             
             if not text:
                 logger.warning(f"No text extracted from {file_path}")
                 self.stats["failed"] += 1
                 return None
             
-            # Create metadata object
-            metadata_obj = Metadata(
-                document_name=metadata_dict.get('document_name', Path(file_path).name),
-                subject=metadata_dict.get('subject', 'Unknown'),
-                status=metadata_dict.get('status', 'processed'),
-                timestamp=metadata_dict.get('timestamp', datetime.now()),
-                case_name=metadata_dict.get('case_name'),
-                author=metadata_dict.get('author'),
-                judge=metadata_dict.get('judge'),
-                court=metadata_dict.get('court')
-            )
-            
+            metadata_obj = document_type_extraction.generate_metadata(text, file_path)
+          
             # Determine document category
             category = self.get_file_category(file_path)
             

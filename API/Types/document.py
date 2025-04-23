@@ -11,7 +11,7 @@ class Document:
         text: str,
         metadata: Metadata,
         doc_type: str = "document",
-        category: Optional[str] = None,
+       # category: Optional[str] = None,
         chunk_id: int = 0,
         embedding: Optional[List[float]] = None,
         hash_value: Optional[str] = None,
@@ -22,7 +22,7 @@ class Document:
         self.text = text
         self.metadata = metadata
         self.doc_type = doc_type
-        self.category = category
+      #  self.category = category
         self.chunk_id = chunk_id
         self.embedding = embedding
         self.hash = hash_value

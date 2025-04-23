@@ -73,8 +73,8 @@ class FileProcessor:
             
         return False
     
-    def extract_text(self, file_path: str) -> Tuple[str, Dict[str, Any]]:
-        """Extract text and basic metadata from a document file"""
+    def extract_text(self, file_path: str)]:
+        """Extract text from a document file"""
         if not self.can_process(file_path):
             logger.warning(f"Cannot process file: {file_path}")
             return "", {}
@@ -87,30 +87,7 @@ class FileProcessor:
             return "", {}
             
         # Extract potential metadata from text
-        metadata = self.extract_metadata_from_text(text, file_path)
+        # metadata = self.extract_metadata_from_text(text, file_path)
         
-        return text, metadata
+        return text
     
-    def extract_metadata_from_text(self, text: str, file_path: str) -> Dict[str, Any]:
-        """Extract metadata from document text using regex patterns"""
-        metadata = {
-            'document_name': Path(file_path).name,
-            'status': 'processed',
-            'timestamp': datetime.now()
-        }
-        
-        # Apply regex patterns to extract basic metadata
-        for key, pattern in METADATA_PATTERNS.items():
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                metadata[key] = match.group(1).strip()
-        
-        # Determine subject from filename if not found in text
-        if 'subject' not in metadata:
-            filename = Path(file_path).stem
-            # Remove numbers and special chars for a cleaner subject
-            clean_name = re.sub(r'[\d_\-\.]+', ' ', filename).strip()
-            if clean_name:
-                metadata['subject'] = clean_name
-        
-        return metadata
