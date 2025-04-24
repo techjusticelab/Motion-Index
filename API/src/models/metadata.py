@@ -63,17 +63,24 @@ class Metadata:
         Returns:
             Dictionary representation of the metadata
         """
-        return {
+        metadata_dict = {
             "document_name": self.document_name,
             "subject": self.subject,
             "status": self.status,
-            "timestamp": self.timestamp,
             "case_name": self.case_name,
             "case_number": self.case_number,
             "author": self.author,
             "judge": self.judge,
             "court": self.court
         }
+        
+        # Properly format timestamp as ISO format string if it exists
+        if self.timestamp:
+            metadata_dict["timestamp"] = self.timestamp.isoformat()
+        else:
+            metadata_dict["timestamp"] = None
+            
+        return metadata_dict
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Metadata":
