@@ -40,8 +40,8 @@ class Metadata:
         self.subject = subject
         self.status = status
         
-        # Optional fields with defaults
-        self.timestamp = timestamp or datetime.now()
+        # Optional fields
+        self.timestamp = timestamp  # Keep as None if not provided
         self.case_name = case_name
         self.case_number = case_number
         self.author = author

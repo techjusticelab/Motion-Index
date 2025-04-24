@@ -36,7 +36,9 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
         "document_type": "...", // MUST be one of [{', '.join(ALLOWED_TYPES_LIST)}]
         "subject": "...",       // A concise summary (5-10 words) of the document's main topic or purpose
         "status": "...",        // e.g., Granted, Denied, Filed, Served, Proposed (null if not applicable/found)
-        "timestamp": "...",     // Date mentioned in the document, preferably filing/signing date (YYYY-MM-DD or original format)
+        "timestamp": "...",     // IMPORTANT: The document's filing date, signature date, or publication date (not just any date mentioned)
+                                // Format as YYYY-MM-DD if possible, otherwise use the original format found in the document
+                                // Set to null if no filing/signature/publication date can be found
         "case_name": "...",     // e.g., "Plaintiff Corp. v. Defendant Inc." (null if not applicable/found)
         "case_number": "...",   // e.g., "3:24-cv-01234-ABC", "INF-xxxxxxx" (null if not found)
         "author": "...",        // Authoring attorney, law firm, or entity (null if not found)
@@ -50,7 +52,14 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
     1. Classify the document into ONE of the following categories: {', '.join(ALLOWED_TYPES_LIST)}
     2. Extract the specified fields from the text.
 
-    Pay close attention to the instructions for the "subject" field - provide a concise summary of the main topic or purpose.
+    Pay close attention to these fields:
+    - "subject": Provide a concise summary of the main topic or purpose (5-10 words)
+    - "timestamp": CRITICALLY IMPORTANT - Look for the document's filing date, signature date, or publication date
+      * Search for dates near terms like "Filed on", "Dated", "Signed this", "Entered", "Filed", "Submitted", etc.
+      * Look at the document header, footer, signature blocks, and certificate of service
+      * If multiple dates appear, prioritize the filing date over other dates
+      * Format as YYYY-MM-DD only
+      * Only use null if absolutely no filing/signature/publication date can be found
 
     Respond ONLY with a single, valid JSON object matching this exact structure:
     {json_format_instructions}
@@ -124,7 +133,7 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
                 if value == "null" or value == "N/A" or value == "" or (isinstance(value, str) and not value.strip()):
                     final_result[key] = None
 
-            logger.info(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}'")
+            logger.info(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}', Timestamp: '{final_result.get('timestamp')}'")
             return final_result
 
         except json.JSONDecodeError as json_e:
@@ -175,6 +184,7 @@ def process_document_llm(
         "judge": None,
         "court": None,
     }
+    
 
     if not document_text or not document_text.strip():
         result_structure["document_type"] = "Unclassified (Empty Input)"
@@ -194,5 +204,5 @@ def process_document_llm(
     # Final check - if type is still Unknown after LLM, log it
     if final_result["document_type"] == DOCUMENT_TYPES['unknown']:
         logger.warning("LLM returned 'Unknown' or classification failed.")
-
+    
     return final_result

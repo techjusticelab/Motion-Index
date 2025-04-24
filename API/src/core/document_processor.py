@@ -10,7 +10,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import openai
-
+from src.utils.datetime_handling import convert_timestamp 
 from src.models.document import Document
 from src.models.metadata import Metadata
 from src.handlers.file_processor import FileProcessor
@@ -29,6 +29,9 @@ from src.utils.constants import (
 
 # Configure logging
 logger = logging.getLogger("document_processor")
+
+
+
 
 
 class DocumentProcessor:
@@ -211,10 +214,11 @@ class DocumentProcessor:
                         case_number=llm_result.get('case_number'),
                         author=llm_result.get('author'),
                         judge=llm_result.get('judge'),
-                        court=llm_result.get('court')
+                        court=llm_result.get('court'),
+                        timestamp= convert_timestamp(llm_result.get('timestamp'))
                     )
                     
-                    logger.info(f"Document classified as: {doc_type}")
+                    logger.info(f"Document classified as: {doc_type}, Timestamp: {metadata_obj.timestamp}")
                 except Exception as e:
                     logger.error(f"Error during LLM classification: {e}")
                     # Fall back to basic metadata
