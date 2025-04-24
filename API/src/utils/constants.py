@@ -5,9 +5,14 @@ from typing import Dict, Set, Any
 
 # File Processing Constants
 MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024  # 50MB
+
+# These formats are supported by the textract library
+# Reference: https://github.com/deanmalmgren/textract
 SUPPORTED_FORMATS: Set[str] = {
-    '.pdf', '.docx', '.doc', '.txt', '.rtf', '.odt', '.html', '.htm',
-    '.wpd', '.wp', '.wp5', '.pptx', '.ppt', '.xlsx', '.xls'
+    '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
+    '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
+    '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
+    '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
 }
 
 # Document Types

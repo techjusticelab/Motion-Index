@@ -74,6 +74,20 @@ class FileProcessor:
             
         # Check file extension
         ext = path.suffix.lower()
+        
+        # Check if the extension is in the list of supported formats by textract
+        # This avoids attempting to process files that textract doesn't support
+        textract_supported = [
+            '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
+            '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
+            '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
+            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+        ]
+        
+        if ext not in textract_supported:
+            logger.warning(f"File extension {ext} not supported by textract: {file_path}")
+            return False
+        
         if ext in SUPPORTED_FORMATS:
             return True
             
@@ -100,10 +114,22 @@ class FileProcessor:
         if not self.can_process(file_path):
             logger.warning(f"Cannot process file: {file_path}")
             return ""
-            
+        
+        path = Path(file_path)
+        ext = path.suffix.lower()
+        
         text = ""
         try:
+            # Process the file using textract
             text = textract.process(file_path, encoding='utf-8').decode('utf-8')
+        except UnicodeDecodeError:
+            # Handle encoding issues
+            try:
+                text = textract.process(file_path).decode('utf-8', errors='replace')
+                logger.warning(f"Processed {file_path} with character replacement due to encoding issues")
+            except Exception as e:
+                logger.error(f"Error extracting text from {file_path} after encoding retry: {e}")
+                return ""
         except Exception as e:
             logger.error(f"Error extracting text from {file_path}: {e}")
             return ""

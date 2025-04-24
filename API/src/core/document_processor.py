@@ -115,7 +115,6 @@ class DocumentProcessor:
                 logger.warning("OpenAI API key not provided, LLM classification will be disabled")
                 self.use_llm_classification = False
             else:
-                # For OpenAI v0.28.0
                 openai.api_key = api_key
                 self.openai_client = openai
         
@@ -127,14 +126,16 @@ class DocumentProcessor:
         # Ensure the index exists
         self.es_handler.create_index()
         
-        # Stats tracking
+        # Initialize statistics dictionary
         self.stats = {
+            "total": 0,
             "processed": 0,
             "indexed": 0,
             "uploaded": 0,
-            "failed": 0,
             "skipped": 0,
-            "total": 0
+            "failed": 0,
+            "unsupported_format": 0,
+            "too_large": 0
         }
     
     def get_file_category(self, file_path: str) -> str:
@@ -291,26 +292,73 @@ class DocumentProcessor:
         """
         logger.info(f"Processing directory: {directory_path}")
         
+        # Reset stats for this processing run
+        self.stats = {
+            "total": 0,
+            "processed": 0,
+            "indexed": 0,
+            "uploaded": 0,
+            "skipped": 0,
+            "failed": 0,
+            "unsupported_format": 0,
+            "too_large": 0
+        }
+        
         # Find all files in directory and subdirectories
         file_paths = []
+        total_files_found = 0
+        
         for root, _, files in os.walk(directory_path):
             for file in files:
                 file_path = os.path.join(root, file)
+                total_files_found += 1
+                
+                # Get file extension
+                ext = os.path.splitext(file)[1].lower()
                 
                 # Skip files that don't match the extensions filter
-                if file_extensions:
-                    ext = os.path.splitext(file)[1].lower()
-                    if ext not in file_extensions:
+                if file_extensions and ext not in file_extensions:
+                    logger.debug(f"Skipping file with non-matching extension: {file_path}")
+                    self.stats["skipped"] += 1
+                    continue
+                
+                # Check file size first
+                try:
+                    if os.path.getsize(file_path) > self.file_processor.max_file_size:
+                        logger.warning(f"File too large to process: {file_path}")
+                        self.stats["too_large"] += 1
+                        self.stats["skipped"] += 1
                         continue
-                        
-                # Skip files that can't be processed
+                except Exception as e:
+                    logger.error(f"Error checking file size {file_path}: {e}")
+                    self.stats["failed"] += 1
+                    continue
+                
+                # Check if the file format is supported by textract
+                textract_supported = [
+                    '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
+                    '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
+                    '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
+                    '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+                ]
+                
+                if ext not in textract_supported:
+                    logger.warning(f"File extension {ext} not supported by textract: {file_path}")
+                    self.stats["unsupported_format"] += 1
+                    self.stats["skipped"] += 1
+                    continue
+                
+                # Skip files that can't be processed for other reasons
                 if not self.file_processor.can_process(file_path):
+                    self.stats["skipped"] += 1
                     continue
                     
                 file_paths.append(file_path)
         
         self.stats["total"] = len(file_paths)
-        logger.info(f"Found {len(file_paths)} files to process")
+        logger.info(f"Found {total_files_found} total files")
+        logger.info(f"Skipped {self.stats['skipped']} files (too large: {self.stats['too_large']}, unsupported format: {self.stats['unsupported_format']})")
+        logger.info(f"Will process {len(file_paths)} files")
         
         # Process files with progress bar
         documents_batch = []
