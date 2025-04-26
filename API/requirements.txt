@@ -7,3 +7,6 @@ openai==0.28.0
 boto3==1.28.0
 httpx<0.24.0
 requests>=2.20
+fastapi==0.109.0
+uvicorn==0.27.0
+pydantic==2.5.0

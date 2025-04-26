@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""
+FastAPI server for Motion-Index document search API.
+"""
+import os
+from typing import Dict, List, Optional, Any
+from fastapi import FastAPI, Query, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import dotenv
+import uvicorn
+from pydantic import BaseModel, Field
+
+from src.handlers.elasticsearch_handler import ElasticsearchHandler
+from src.utils.constants import (
+    ES_DEFAULT_HOST,
+    ES_DEFAULT_PORT,
+    ES_DEFAULT_INDEX
+)
+
+# Load environment variables
+dotenv.load_dotenv()
+
+# Initialize FastAPI app
+app = FastAPI(
+    title="Motion-Index API",
+    description="API for searching legal documents in Elasticsearch",
+    version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize Elasticsearch handler
+es_handler = ElasticsearchHandler(
+    host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
+    port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
+    index_name=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
+    username=os.environ.get("ES_USERNAME"),
+    password=os.environ.get("ES_PASSWORD"),
+    api_key=os.environ.get("ES_API_KEY"),
+    cloud_id=os.environ.get("ES_CLOUD_ID"),
+    use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true"
+)
+
+# Pydantic models for request/response
+class SearchRequest(BaseModel):
+    query: Optional[str] = None
+    doc_type: Optional[str] = None
+    case_number: Optional[str] = None
+    case_name: Optional[str] = None
+    judge: Optional[str] = None
+    court: Optional[str] = None
+    author: Optional[str] = None
+    status: Optional[str] = None
+    date_range: Optional[Dict[str, str]] = None
+    size: int = Field(default=10, ge=1, le=100)
+    sort_by: Optional[str] = None
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$")
+    page: int = Field(default=1, ge=1)
+
+class MetadataFieldRequest(BaseModel):
+    field: str
+    prefix: Optional[str] = None
+    size: int = Field(default=20, ge=1, le=100)
+
+@app.get("/")
+async def root():
+    """Root endpoint to check if the API is running."""
+    return {"message": "Motion-Index API is running"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    try:
+        # Check Elasticsearch connection
+        if es_handler.es.ping():
+            return {"status": "healthy", "elasticsearch": "connected"}
+        else:
+            return {"status": "unhealthy", "elasticsearch": "disconnected"}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+@app.post("/search")
+async def search_documents(search_request: SearchRequest):
+    """
+    Search for documents with advanced filtering options.
+    """
+    try:
+        # Calculate offset from page number
+        from_value = (search_request.page - 1) * search_request.size
+        
+        # Build metadata filters from individual parameters
+        metadata_filters = {}
+        if search_request.case_number:
+            metadata_filters["case_number"] = search_request.case_number
+        if search_request.case_name:
+            metadata_filters["case_name"] = search_request.case_name
+        if search_request.judge:
+            metadata_filters["judge"] = search_request.judge
+        if search_request.court:
+            metadata_filters["court"] = search_request.court
+        if search_request.author:
+            metadata_filters["author"] = search_request.author
+        if search_request.status:
+            metadata_filters["status"] = search_request.status
+            
+        # Execute search
+        results = es_handler.search_documents(
+            query=search_request.query,
+            doc_type=search_request.doc_type,
+            metadata_filters=metadata_filters if metadata_filters else None,
+            date_range=search_request.date_range,
+            size=search_request.size,
+            sort_by=search_request.sort_by,
+            sort_order=search_request.sort_order
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/document-types")
+async def get_document_types():
+    """
+    Get a list of all document types and their counts.
+    """
+    try:
+        return es_handler.get_document_types()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/metadata-field-values")
+async def get_metadata_field_values(request: MetadataFieldRequest):
+    """
+    Get unique values for a specific metadata field, optionally filtered by prefix.
+    """
+    try:
+        return es_handler.get_metadata_field_values(
+            field=request.field,
+            prefix=request.prefix,
+            size=request.size
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/document-stats")
+async def get_document_stats():
+    """
+    Get statistics about the indexed documents.
+    """
+    try:
+        return es_handler.get_document_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/metadata-fields")
+async def get_metadata_fields():
+    """
+    Get a list of all available metadata fields for filtering.
+    """
+    return {
+        "fields": [
+            {"id": "doc_type", "name": "Document Type", "type": "string"},
+            {"id": "category", "name": "Category", "type": "string"},
+            {"id": "metadata.case_number", "name": "Case Number", "type": "string"},
+            {"id": "metadata.case_name", "name": "Case Name", "type": "string"},
+            {"id": "metadata.judge", "name": "Judge", "type": "string"},
+            {"id": "metadata.court", "name": "Court", "type": "string"},
+            {"id": "metadata.author", "name": "Author", "type": "string"},
+            {"id": "metadata.status", "name": "Status", "type": "string"},
+            {"id": "created_at", "name": "Date", "type": "date"}
+        ]
+    }
+
+if __name__ == "__main__":
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

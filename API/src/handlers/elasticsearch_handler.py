@@ -195,8 +195,9 @@ class ElasticsearchHandler:
                         metadata_filters: Optional[Dict[str, Any]] = None,
                         date_range: Optional[Dict[str, str]] = None,
                         size: int = 10,
+                        from_value: int = 0,
                         sort_by: Optional[str] = None,
-                        sort_order: str = "desc") -> List[Dict[str, Any]]:
+                        sort_order: str = "desc") -> Dict[str, Any]:
         """
         Search for documents with advanced filtering options.
         
@@ -216,7 +217,10 @@ class ElasticsearchHandler:
         """
         try:
             # Build the query
-            search_body = {"size": size}
+            search_body = {
+                "size": size,
+                "from": from_value
+            }
             must_clauses = []
             filter_clauses = []
             
@@ -239,7 +243,7 @@ class ElasticsearchHandler:
             # Document type filter
             if doc_type:
                 filter_clauses.append({
-                    "term": {"doc_type": doc_type}
+                    "term": {"doc_type.keyword": doc_type}
                 })
             
             # Metadata filters
@@ -280,7 +284,30 @@ class ElasticsearchHandler:
             
             # Add sorting if specified
             if sort_by:
-                search_body["sort"] = [{sort_by: {"order": sort_order}}]
+                # Use .keyword suffix for text fields when sorting
+                sort_field = sort_by
+                if sort_by not in ["created_at"] and not sort_by.endswith(".keyword"):
+                    sort_field = f"{sort_by}.keyword"
+                search_body["sort"] = [{sort_field: {"order": sort_order}}]
+                
+            # Add highlighting for search results
+            if query:
+                search_body["highlight"] = {
+                    "fields": {
+                        "text": {
+                            "fragment_size": 150,
+                            "number_of_fragments": 3,
+                            "pre_tags": ["<strong>"],
+                            "post_tags": ["</strong>"]
+                        },
+                        "metadata.subject": {
+                            "fragment_size": 150,
+                            "number_of_fragments": 1,
+                            "pre_tags": ["<strong>"],
+                            "post_tags": ["</strong>"]
+                        }
+                    }
+                }
             
             # Execute the search
             response = self.es.search(
@@ -288,11 +315,36 @@ class ElasticsearchHandler:
                 body=search_body
             )
             
+            # Extract hits and total count
             hits = response["hits"]["hits"]
-            return [hit["_source"] for hit in hits]
+            total = response["hits"]["total"]["value"]
+            
+            # Format results with highlighting if available
+            formatted_hits = []
+            for hit in hits:
+                doc = hit["_source"]
+                
+                # Add highlighting if available
+                if "highlight" in hit:
+                    doc["highlight"] = hit["highlight"]
+                
+                formatted_hits.append(doc)
+            
+            # Return structured response with total and hits
+            return {
+                "total": total,
+                "hits": formatted_hits,
+                "page_size": size,
+                "from": from_value
+            }
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
-            return []
+            return {
+                "total": 0,
+                "hits": [],
+                "page_size": size,
+                "from": from_value
+            }
     
     def get_document_types(self) -> Dict[str, int]:
         """
@@ -309,7 +361,7 @@ class ElasticsearchHandler:
                     "aggs": {
                         "doc_types": {
                             "terms": {
-                                "field": "doc_type",
+                                "field": "doc_type.keyword",
                                 "size": 100  # Get up to 100 different document types
                             }
                         }
