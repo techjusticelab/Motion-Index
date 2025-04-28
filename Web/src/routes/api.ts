@@ -94,6 +94,16 @@ export async function getMetadataFieldValues(field: string, prefix?: string, siz
   }
 }
 
+export async function getAllFieldOptions(): Promise<Record<string, string[]>> {
+  try {
+    const response = await axios.get(`${API_URL}/all-field-options`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting all field options:', error);
+    throw error;
+  }
+}
+
 export async function getDocumentStats(): Promise<any> {
   try {
     const response = await axios.get(`${API_URL}/document-stats`);

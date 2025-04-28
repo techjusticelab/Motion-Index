@@ -177,5 +177,33 @@ async def get_metadata_fields():
         ]
     }
 
+@app.get("/all-field-options")
+async def get_all_field_options():
+    """
+    Get all available options for multiple fields at once.
+    This is used to populate dropdowns and filter options in the UI.
+    """
+    try:
+        # Fields to get options for (excluding case_name and author as requested)
+        fields = [
+            "doc_type",
+            "category",
+            "case_number",
+            "judge",
+            "court",
+            "status"
+        ]
+        
+        # Get options for each field
+        result = {}
+        for field in fields:
+            # Use a larger size to get more options
+            options = es_handler.get_metadata_field_values(field, size=100)
+            result[field] = options
+            
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

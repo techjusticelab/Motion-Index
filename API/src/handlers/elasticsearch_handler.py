@@ -226,19 +226,40 @@ class ElasticsearchHandler:
             
             # Text search query
             if query:
-                must_clauses.append({
-                    "multi_match": {
-                        "query": query,
-                        "fields": [
-                            "text^1",  # Text content with normal weight
-                            "metadata.subject^2",  # Subject with higher weight
-                            "metadata.case_name^2", 
-                            "file_name^1.5"
-                        ],
-                        "type": "best_fields",
-                        "fuzziness": "AUTO"
-                    }
-                })
+                # Check if the query contains special operators
+                has_operators = any(op in query for op in ['OR', 'AND', '"', '*', '~'])
+                
+                if has_operators:
+                    # Use query_string for advanced query syntax
+                    must_clauses.append({
+                        "query_string": {
+                            "query": query,
+                            "fields": [
+                                "text^1",  # Text content with normal weight
+                                "metadata.subject^2",  # Subject with higher weight
+                                "metadata.case_name^2", 
+                                "file_name^1.5"
+                            ],
+                            "default_operator": "AND",
+                            "analyze_wildcard": True,
+                            "allow_leading_wildcard": True
+                        }
+                    })
+                else:
+                    # Use multi_match for simple queries with fuzzy matching
+                    must_clauses.append({
+                        "multi_match": {
+                            "query": query,
+                            "fields": [
+                                "text^1",  # Text content with normal weight
+                                "metadata.subject^2",  # Subject with higher weight
+                                "metadata.case_name^2", 
+                                "file_name^1.5"
+                            ],
+                            "type": "best_fields",
+                            "fuzziness": "AUTO"
+                        }
+                    })
             
             # Document type filter
             if doc_type:
