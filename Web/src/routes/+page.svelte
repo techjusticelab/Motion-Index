@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { format } from 'date-fns';
 	import * as api from './api';
+	import DocumentViewer from './lib/components/DocumentViewer.svelte';
 
 	// Filter state for dropdowns
 	let courtSearchInput = '';
@@ -17,20 +18,7 @@
 	// Document popup state and functions
 	let activeDocument: { metadata: { document_name: any }; file_name: any; s3_uri: any } | null =
 		null;
-
-	// Show document popup
-	function showDocumentPopup(document) {
-		activeDocument = document;
-		// Prevent body scrolling when popup is open
-		document.body.style.overflow = 'hidden';
-	}
-
-	// Close document popup
-	function closeDocumentPopup() {
-		activeDocument = null;
-		// Restore body scrolling
-		document.body.style.overflow = 'auto';
-	}
+	let showDocumentPopup = false;
 
 	// State variables
 	let searchParams = {
@@ -117,6 +105,7 @@
 			}
 
 			searchResults = await api.searchDocuments(cleanParams);
+			console.log('Search results:', searchResults);
 			totalPages = Math.ceil(searchResults.total / searchParams.size);
 
 			// Switch to results tab if we have results and on mobile
@@ -130,6 +119,12 @@
 		} finally {
 			isLoading = false;
 		}
+	}
+
+	// Open document viewer
+	function openDocumentViewer(document) {
+		activeDocument = document;
+		showDocumentPopup = true;
 	}
 
 	// Handle search form submission
@@ -267,7 +262,7 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-6xl px-4 py-6">
+<div class="max-w-7/8 container mx-auto px-4 py-6">
 	<!-- Header -->
 	<div class="mb-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 p-6 shadow-lg">
 		<div class="flex flex-col items-start justify-between md:flex-row md:items-center">
@@ -866,7 +861,7 @@
 							{#each searchResults.hits as document}
 								<div
 									class="cursor-pointer rounded-lg border border-gray-100 p-4 shadow-sm transition-all hover:bg-gray-50"
-									on:click={() => showDocumentPopup(document)}
+									on:click={() => openDocumentViewer(document)}
 								>
 									<div class="mb-2 flex flex-wrap items-start justify-between gap-2">
 										<h3 class="text-base font-medium text-blue-700">
@@ -935,79 +930,6 @@
 								</div>
 							{/each}
 						</div>
-
-						<!-- Document Popup -->
-						{#if activeDocument}
-							<div
-								class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
-								on:click={closeDocumentPopup}
-							>
-								<div
-									class="relative h-[85vh] w-full max-w-5xl rounded-lg bg-white shadow-2xl"
-									on:click|stopPropagation
-								>
-									<!-- Popup Header -->
-									<div class="flex items-center justify-between border-b border-gray-200 p-4">
-										<h2 class="truncate text-lg font-semibold text-gray-800">
-											{activeDocument.metadata.document_name || activeDocument.file_name}
-										</h2>
-										<button
-											class="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100"
-											on:click={closeDocumentPopup}
-										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-6 w-6"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke="currentColor"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													stroke-width="2"
-													d="M6 18L18 6M6 6l12 12"
-												/>
-											</svg>
-										</button>
-									</div>
-
-									<!-- Document Content -->
-									<div class="h-[calc(100%-4rem)] w-full">
-										{#if activeDocument.s3_uri}
-											<iframe
-												src={activeDocument.s3_uri}
-												title={activeDocument.metadata.document_name || activeDocument.file_name}
-												class="h-full w-full rounded-b-lg"
-												sandbox="allow-same-origin allow-scripts allow-forms"
-												loading="lazy"
-											></iframe>
-										{:else}
-											<div class="flex h-full flex-col items-center justify-center p-8 text-center">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													class="mb-4 h-16 w-16 text-gray-300"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke="currentColor"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														stroke-width="2"
-														d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-													/>
-												</svg>
-												<p class="mb-2 text-gray-600">Document preview not available</p>
-												<p class="text-sm text-gray-500">
-													The document URL is missing or inaccessible.
-												</p>
-											</div>
-										{/if}
-									</div>
-								</div>
-							</div>
-						{/if}
 
 						<!-- Pagination -->
 						{#if totalPages > 1}
@@ -1108,3 +1030,6 @@
 		</div>
 	</div>
 </div>
+
+<!-- Document Viewer Component -->
+<DocumentViewer document={activeDocument} isOpen={showDocumentPopup} />

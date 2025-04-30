@@ -51,8 +51,8 @@
 	</main>
 
 	<footer class="mt-12 border-t bg-gray-100">
-		<div class="container mx-auto px-4 py-6 text-center text-sm text-gray-600">
-			<p>Motion Index Search - Legal Document Repository</p>
+		<div class="container mx-auto px-4 py-6 text-left text-sm text-gray-600">
+			<p>&copy; 2025 Berkeley Technology and Justice Lab. All rights reserved.</p>
 		</div>
 	</footer>
 </div>

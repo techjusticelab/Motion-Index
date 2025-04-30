@@ -109,32 +109,41 @@ class ElasticsearchHandler:
             logger.error(f"Error creating index: {e}")
             return False
     
-    def index_document(self, document: Document) -> bool:
+    def index_document(self, document: Document) -> str:
         """
-        Index a single document into Elasticsearch.
-        
+        Index a single document into Elasticsearch and return its ID.
+    
         Args:
             document: Document object to index
-            
+
         Returns:
-            True if successful, False otherwise
+            Document ID if successful, raises exception otherwise
         """
         try:
-            # Convert document to dictionary
+            # Convert document to dictionary - use to_dict() instead of dict()
             doc_dict = document.to_dict()
-            
+
             # Normalize court name if present in metadata
             if doc_dict.get('metadata', {}).get('court'):
                 doc_dict['metadata']['court'] = normalize_court_name(doc_dict['metadata']['court'])
-            
+
+            # Get the document hash for the ID
+            doc_id = getattr(document, 'hash', None) or doc_dict.get('hash_value')
+
             # Index the document
-            self.es.index(index=self.index_name, body=doc_dict, id=document.hash)
-            logger.info(f"Indexed document: {document.file_name}")
-            return True
+            response = self.es.index(
+                index=self.index_name, 
+                body=doc_dict, 
+                id=doc_id,
+                refresh=True  # Ensure the document is immediately available for search
+            )
+
+            logger.info(f"Indexed document: {getattr(document, 'file_name', 'unknown')}")
+            return response['_id']
         except Exception as e:
-            logger.error(f"Error indexing document {document.file_name}: {e}")
-            return False
-    
+            logger.error(f"Error indexing document: {e}")
+            raise
+       
     def bulk_index_documents(self, documents: List[Document], chunk_size: int = ES_BULK_CHUNK_SIZE) -> Tuple[int, int]:
         """
         Bulk index multiple documents into Elasticsearch.
@@ -152,16 +161,19 @@ class ElasticsearchHandler:
         # Convert documents to ES actions
         actions = []
         for doc in documents:
-            # Convert document to dictionary
+            # Convert document to dictionary using to_dict()
             doc_dict = doc.to_dict()
             
             # Normalize court name if present in metadata
             if doc_dict.get('metadata', {}).get('court'):
                 doc_dict['metadata']['court'] = normalize_court_name(doc_dict['metadata']['court'])
             
+            # Get the document hash for the ID
+            doc_id = getattr(doc, 'hash', None) or doc_dict.get('hash_value')
+            
             actions.append({
                 "_index": self.index_name,
-                "_id": doc.hash,
+                "_id": doc_id,
                 "_source": doc_dict
             })
         
@@ -201,6 +213,91 @@ class ElasticsearchHandler:
             return self.es.exists(index=self.index_name, id=doc_hash)
         except Exception as e:
             logger.error(f"Error checking document existence: {e}")
+            return False
+    
+    def document_exists_by_id(self, document_id: str) -> bool:
+        """
+        Check if a document exists by ID.
+        
+        Args:
+            document_id: ID of the document
+            
+        Returns:
+            True if document exists, False otherwise
+        """
+        try:
+            return self.es.exists(index=self.index_name, id=document_id)
+        except Exception as e:
+            logger.error(f"Error checking document existence by ID: {e}")
+            return False
+    
+    def get_document(self, document_id: str) -> Dict[str, Any]:
+        """
+        Retrieve a document by ID.
+        
+        Args:
+            document_id: ID of the document
+            
+        Returns:
+            Document data with added ID field
+        """
+        try:
+            response = self.es.get(
+                index=self.index_name,
+                id=document_id
+            )
+            
+            # Combine document data with its ID
+            doc_data = response['_source']
+            doc_data['id'] = response['_id']
+            
+            return doc_data
+        except Exception as e:
+            logger.error(f"Error retrieving document: {e}")
+            raise
+    
+    def update_document_metadata(self, document_id: str, metadata: Dict[str, Any]) -> bool:
+        """
+        Update metadata fields for a document.
+        
+        Args:
+            document_id: ID of the document
+            metadata: Dictionary of metadata fields to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Prepare the update body
+            update_body = {
+                "doc": {
+                    "metadata": metadata
+                }
+            }
+            
+            # If the metadata includes document type or category, update those too
+            if "doc_type" in metadata:
+                update_body["doc"]["doc_type"] = metadata["doc_type"]
+            
+            if "category" in metadata:
+                update_body["doc"]["category"] = metadata["category"]
+            
+            # Normalize court name if present
+            if metadata.get('court'):
+                update_body["doc"]["metadata"]["court"] = normalize_court_name(metadata['court'])
+            
+            # Update the document
+            self.es.update(
+                index=self.index_name,
+                id=document_id,
+                body=update_body,
+                refresh=True
+            )
+            
+            logger.info(f"Updated metadata for document {document_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating document metadata: {e}")
             return False
     
     def search_documents(self, 

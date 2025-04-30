@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://127.0.0.1:8000';
+const API_URL = 'http://172.19.0.2:8000';
 
 // Define types
 export interface SearchParams {
@@ -139,6 +139,19 @@ export async function categoriseDocument(file: File): Promise<any> {
     return response.data;
   } catch (error) {
     console.error("Error categorising document:", error);
+    throw error;
+  }
+}
+
+export async function updateDocumentMetadata(documentId: string, metadata: any): Promise<any> {
+  try {
+    const response = await axios.post(`${API_URL}/update-metadata`, {
+      document_id: documentId,
+      metadata: metadata
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating document metadata:', error);
     throw error;
   }
 }

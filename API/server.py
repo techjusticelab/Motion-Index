@@ -1,8 +1,8 @@
-#!/usr/bin/env python3
 """
 FastAPI server for Motion-Index document search API.
 """
 import os
+import logging
 from typing import Dict, List, Optional, Any, Union
 from fastapi import FastAPI, Query, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +17,14 @@ from src.utils.constants import (
     ES_DEFAULT_INDEX
 )
 from src.core.document_processor import DocumentProcessor
+from src.models.document import Document
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+class MetadataUpdateRequest(BaseModel):
+    document_id: str
+    metadata: Dict[str, Any]
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -221,10 +229,11 @@ async def get_all_field_options():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/upload-document")
-async def upload_document(file: UploadFile = File(...)):
+@app.post("/categorise")
+async def categorise_document(file: UploadFile = File(...)):
     """
-    Upload and process a single document.
+    Upload and categorise a document using the document processor.
+    Returns the full document data from Elasticsearch including all metadata fields.
     """
     try:
         # Save the uploaded file temporarily
@@ -232,18 +241,55 @@ async def upload_document(file: UploadFile = File(...)):
         with open(temp_file_path, "wb") as temp_file:
             temp_file.write(await file.read())
 
-        # Process the file using DocumentProcessor
+        # Process and categorise the file using DocumentProcessor
         document = document_processor.process_file(temp_file_path)
-
+        
+        if not document:
+            raise HTTPException(status_code=400, detail="Failed to process the document")
+        
+        # Index the document in Elasticsearch to get an ID
+        doc_id = es_handler.index_document(document)
+        
+        # Retrieve the full document data from Elasticsearch
+        full_document = es_handler.get_document(doc_id)
+        
         # Clean up the temporary file
         os.remove(temp_file_path)
 
-        if document:
-            return {"message": "Document processed successfully", "document": document.dict()}
-        else:
-            raise HTTPException(status_code=400, detail="Failed to process the document")
+        return {
+            "message": "Document categorised successfully",
+            "document": full_document
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error categorising document: {str(e)}")
+
+@app.post("/update-metadata")
+async def update_document_metadata(request: MetadataUpdateRequest):
+    """
+    Update metadata fields for a document.
+    """
+    try:
+        # Check if document exists
+        if not es_handler.document_exists_by_id(request.document_id):
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Update the document metadata
+        success = es_handler.update_document_metadata(request.document_id, request.metadata)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update document metadata")
+        
+        # Retrieve the updated document
+        updated_document = es_handler.get_document(request.document_id)
+        
+        return {
+            "message": "Document metadata updated successfully",
+            "document": updated_document
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating metadata: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

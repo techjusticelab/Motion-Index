@@ -8,7 +8,61 @@
 	let isDragging: boolean = false;
 	let uploadedDocuments: Array<{ name: string; type: string; response: any }> = [];
 	let isUploading: boolean = false;
+	// Add these to your script section
+	let isEditingMetadata = false;
+	let editableMetadata = null;
 
+	function startEditingMetadata(document) {
+		// Create a deep copy of the document for editing
+		editableMetadata = JSON.parse(JSON.stringify(document));
+		isEditingMetadata = true;
+	}
+
+	async function saveMetadata() {
+		if (!editableMetadata || !editableMetadata.id) {
+			uploadStatus = 'Error: No document selected for metadata update';
+			return;
+		}
+
+		try {
+			uploadStatus = 'Updating document metadata...';
+
+			// Extract the metadata fields we want to update
+			const metadataToUpdate = editableMetadata.metadata;
+
+			// Update document metadata through API
+			const response = await updateDocumentMetadata(editableMetadata.id, metadataToUpdate);
+
+			// Update the document in our list
+			uploadedDocuments = uploadedDocuments.map((doc) => {
+				if (doc.response.id === editableMetadata.id) {
+					return {
+						...doc,
+						response: response.document
+					};
+				}
+				return doc;
+			});
+
+			// Update the current document response
+			documentResponse = response.document;
+
+			// Exit edit mode
+			isEditingMetadata = false;
+			uploadStatus = 'Document metadata updated successfully!';
+		} catch (error) {
+			uploadStatus = 'Failed to update document metadata. Please try again.';
+			console.error(error);
+		}
+	}
+
+	// Modify showDocumentDetails to initialize editable metadata
+	function showDocumentDetails(document) {
+		documentResponse = document;
+		// Reset the editing state
+		isEditingMetadata = false;
+		editableMetadata = null;
+	}
 	async function handleFileUpload() {
 		console.log('Selected file:', selectedFile);
 		if (!selectedFile) {
@@ -20,21 +74,11 @@
 		uploadStatus = 'Uploading and categorising document...';
 
 		try {
-			// Simulate API delay since you mentioned backend isn't implemented
-			await new Promise((resolve) => setTimeout(resolve, 2000));
+			// Call the actual API endpoint
+			const response = await categoriseDocument(selectedFile);
 
-			// Since backend isn't implemented, create a mock response
-			const mockResponse = {
-				document: {
-					title: selectedFile.name,
-					type: 'Motion',
-					category: 'Criminal Defense',
-					date: new Date().toISOString().split('T')[0],
-					size: Math.round(selectedFile.size / 1024) + ' KB'
-				}
-			};
-
-			documentResponse = mockResponse.document;
+			// Use the full document response
+			documentResponse = response.document;
 
 			// Add the document to our list of uploaded documents
 			uploadedDocuments = [
@@ -42,7 +86,8 @@
 				{
 					name: selectedFile.name,
 					type: selectedFile.type,
-					response: mockResponse.document
+					response: response.document,
+					id: response.document.id // Store the document ID for metadata updates
 				}
 			];
 
@@ -122,10 +167,6 @@
 		} else {
 			return 'generic';
 		}
-	}
-
-	function showDocumentDetails(document: any) {
-		documentResponse = document;
 	}
 </script>
 
@@ -366,13 +407,127 @@
 		{#if documentResponse}
 			<div class="document-details">
 				<h2 class="text-lg font-semibold">Document Details</h2>
-				<pre class="details-json">{JSON.stringify(documentResponse, null, 2)}</pre>
+
+				<!-- Add edit button and metadata form -->
+				<div class="metadata-controls mb-4">
+					<button
+						class="edit-metadata-button"
+						on:click={() => (isEditingMetadata = !isEditingMetadata)}
+					>
+						{isEditingMetadata ? 'Cancel' : 'Edit Metadata'}
+					</button>
+				</div>
+
+				{#if isEditingMetadata}
+					<div class="metadata-form">
+						<div class="form-group">
+							<label for="doc-type">Document Type</label>
+							<input id="doc-type" type="text" bind:value={editableMetadata.doc_type} />
+						</div>
+						<div class="form-group">
+							<label for="category">Category</label>
+							<input id="category" type="text" bind:value={editableMetadata.category} />
+						</div>
+						<div class="form-group">
+							<label for="case-name">Case Name</label>
+							<input id="case-name" type="text" bind:value={editableMetadata.metadata.case_name} />
+						</div>
+						<div class="form-group">
+							<label for="case-number">Case Number</label>
+							<input
+								id="case-number"
+								type="text"
+								bind:value={editableMetadata.metadata.case_number}
+							/>
+						</div>
+						<div class="form-group">
+							<label for="court">Court</label>
+							<input id="court" type="text" bind:value={editableMetadata.metadata.court} />
+						</div>
+						<div class="form-group">
+							<label for="judge">Judge</label>
+							<input id="judge" type="text" bind:value={editableMetadata.metadata.judge} />
+						</div>
+						<div class="form-group">
+							<label for="status">Status</label>
+							<input id="status" type="text" bind:value={editableMetadata.metadata.status} />
+						</div>
+
+						<div class="form-actions">
+							<button class="save-metadata-button" on:click={saveMetadata}> Save Changes </button>
+						</div>
+					</div>
+				{:else}
+					<pre class="details-json">{JSON.stringify(documentResponse, null, 2)}</pre>
+				{/if}
 			</div>
 		{/if}
 	</div>
 </div>
 
 <style>
+    .metadata-form {
+    background-color: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e5e7eb;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4b5563;
+    margin-bottom: 0.25rem;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+.edit-metadata-button, .save-metadata-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.edit-metadata-button {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+    margin-right: 0.5rem;
+}
+
+.edit-metadata-button:hover {
+    background-color: #e5e7eb;
+}
+
+.save-metadata-button {
+    background-color: #6366f1;
+    color: white;
+    border: none;
+}
+
+.save-metadata-button:hover {
+    background-color: #4f46e5;
+}
 	.upload-container {
 		width: 90%;
 		max-width: 700px;
@@ -478,7 +633,7 @@
 	}
 
 	.upload-button.disabled {
-		background-color: #9ca3af;
+		background-color: #9ca3af
 		cursor: not-allowed;
 	}
 
