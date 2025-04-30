@@ -18,6 +18,9 @@ logger = logging.getLogger("file_processor")
 for ext, mime_type in MIME_TYPES.items():
     mimetypes.add_type(mime_type, ext)
 
+# Add WordPerfect Document mimetype
+mimetypes.add_type('application/wordperfect', '.wpd')
+
 
 class FileProcessor:
     """
@@ -81,7 +84,7 @@ class FileProcessor:
             '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
             '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
             '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.wpd', '.xls', '.xlsx'
         ]
         
         if ext not in textract_supported:
@@ -95,7 +98,8 @@ class FileProcessor:
         mime_type, _ = mimetypes.guess_type(file_path)
         if mime_type and any(mime_type.startswith(t) for t in [
             'text/', 'application/pdf', 'application/msword', 
-            'application/vnd.ms-', 'application/vnd.openxmlformats-'
+            'application/vnd.ms-', 'application/vnd.openxmlformats-',
+            'application/wordperfect'
         ]):
             return True
             
