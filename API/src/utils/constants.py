@@ -269,4 +269,4 @@ DEFAULT_MAX_WORKERS = 4
 DEFAULT_BATCH_SIZE = 100
 
 # LLM Constants
-OPENAI_MODEL = "gpt-3.5-turbo"
+OPENAI_MODEL = "gpt-4.1-mini"
