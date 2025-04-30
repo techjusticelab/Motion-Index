@@ -15,6 +15,7 @@ from src.utils.constants import MAX_FILE_SIZE_DEFAULT, SUPPORTED_FORMATS, MIME_T
 
 # Configure logging
 logger = logging.getLogger("file_processor")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Add missing mimetypes
 for ext, mime_type in MIME_TYPES.items():
@@ -124,32 +125,64 @@ class FileProcessor:
         try:
             # Create a temporary directory for the output
             with tempfile.TemporaryDirectory() as temp_dir:
-                pdf_path = os.path.join(temp_dir, "converted.pdf")
+                # Get the base filename without extension
+                base_filename = os.path.basename(wpd_path)
+                base_name_no_ext = os.path.splitext(base_filename)[0]
+                
+                # LibreOffice may create the PDF with this name pattern
+                expected_pdf_name = f"{base_name_no_ext}.pdf"
+                expected_pdf_path = os.path.join(temp_dir, expected_pdf_name)
+                
+                logger.info(f"Using temp directory: {temp_dir}")
+                logger.info(f"Base filename: {base_filename}")
+                logger.info(f"Expected PDF path: {expected_pdf_path}")
                 
                 # Use LibreOffice to convert WPD to PDF
-                # Adjust the command based on your system's configuration
                 cmd = ["libreoffice", "--headless", "--convert-to", "pdf", 
                        "--outdir", temp_dir, wpd_path]
                 
+                logger.info(f"Running conversion command: {' '.join(cmd)}")
+                
                 process = subprocess.run(cmd, capture_output=True, text=True)
+                
+                # Log the output regardless of success
+                logger.info(f"Command stdout: {process.stdout}")
+                logger.info(f"Command stderr: {process.stderr}")
                 
                 if process.returncode != 0:
                     logger.error(f"Failed to convert WPD to PDF: {process.stderr}")
                     return None
+                
+                # List files in the output directory to find the converted file
+                logger.info(f"Checking output directory contents: {temp_dir}")
+                files_in_dir = os.listdir(temp_dir)
+                logger.info(f"Files in output directory: {files_in_dir}")
+                
+                pdf_files = [f for f in files_in_dir if f.endswith('.pdf')]
+                
+                if not pdf_files:
+                    logger.error(f"No PDF files found in output directory")
+                    return None
+                
+                # If we found PDF files, use the first one
+                actual_pdf_path = os.path.join(temp_dir, pdf_files[0])
+                logger.info(f"Found PDF file: {actual_pdf_path}")
                 
                 # Create a temporary file that will persist after this function returns
                 temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
                 temp_pdf.close()
                 
                 # Copy the converted PDF to our persistent temp file
-                with open(pdf_path, 'rb') as src, open(temp_pdf.name, 'wb') as dst:
+                logger.info(f"Copying PDF to persistent temp file: {temp_pdf.name}")
+                with open(actual_pdf_path, 'rb') as src, open(temp_pdf.name, 'wb') as dst:
                     dst.write(src.read())
                 
+                logger.info(f"Successfully created persistent PDF at: {temp_pdf.name}")
                 return temp_pdf.name
         except Exception as e:
-            logger.error(f"Error converting WPD to PDF: {e}")
+            logger.error(f"Error converting WPD to PDF: {str(e)}", exc_info=True)
             return None
-    
+     
     def extract_text(self, file_path: str) -> str:
         """
         Extract text from a document file.
@@ -202,3 +235,95 @@ class FileProcessor:
                     logger.warning(f"Failed to delete temporary PDF file {temp_pdf_path}: {e}")
             
         return text
+
+
+if __name__ == "__main__":
+    # Define mock constants if they're not available (for standalone testing)
+    try:
+        from src.utils.constants import MAX_FILE_SIZE_DEFAULT, SUPPORTED_FORMATS, MIME_TYPES
+    except ImportError:
+        MAX_FILE_SIZE_DEFAULT = 50 * 1024 * 1024  # 50MB
+        SUPPORTED_FORMATS = ['.txt', '.pdf', '.doc', '.docx', '.wpd']
+        MIME_TYPES = {
+            '.wpd': 'application/wordperfect',
+            '.pdf': 'application/pdf',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.doc': 'application/msword',
+            '.txt': 'text/plain'
+        }
+    
+    # Test if LibreOffice is installed
+    print("Checking for LibreOffice installation...")
+    try:
+        libreoffice_check = subprocess.run(["libreoffice", "--version"], 
+                                        capture_output=True, text=True)
+        if libreoffice_check.returncode == 0:
+            print(f"LibreOffice is available: {libreoffice_check.stdout.strip()}")
+        else:
+            print("Warning: LibreOffice check returned non-zero exit code.")
+            print(f"Error: {libreoffice_check.stderr}")
+    except FileNotFoundError:
+        print("ERROR: LibreOffice not found! Please install LibreOffice.")
+        print("On Ubuntu/Debian: sudo apt-get install libreoffice")
+        print("On macOS: brew install --cask libreoffice")
+        print("On Windows: Download from libreoffice.org")
+        exit(1)
+    except Exception as e:
+        print(f"Error checking LibreOffice: {e}")
+    
+    # Test with the specific file
+    test_file_path = "cpra.sheriff.1.wpd"
+    
+    # Ensure file exists
+    if not os.path.exists(test_file_path):
+        print(f"Error: Test file '{test_file_path}' not found.")
+        exit(1)
+    
+    print(f"Testing WordPerfect conversion with file: {test_file_path}")
+    
+    # Create processor instance
+    processor = FileProcessor()
+    
+    # Test WPD to PDF conversion
+    pdf_path = processor._convert_wpd_to_pdf(test_file_path)
+    if pdf_path:
+        print(f"Successfully converted WPD to PDF: {pdf_path}")
+        
+        # Try to extract text from the PDF directly as a test
+        try:
+            pdf_text = textract.process(pdf_path, method='pdfminer').decode('utf-8')
+            print(f"Successfully extracted text from PDF. Length: {len(pdf_text)}")
+            preview = pdf_text[:200] + ("..." if len(pdf_text) > 200 else "")
+            print(f"PDF text preview: {preview}")
+        except Exception as e:
+            print(f"Error extracting text from PDF: {e}")
+        
+        # Clean up the temp PDF file
+        try:
+            os.unlink(pdf_path)
+            print(f"Cleaned up temporary PDF file.")
+        except Exception as e:
+            print(f"Note: Could not clean up temporary PDF file: {e}")
+    else:
+        print("Failed to convert WPD to PDF.")
+    
+    # Test text extraction
+    print("\nTesting full text extraction process...")
+    text = processor.extract_text(test_file_path)
+    
+    print(f"\nExtracted text length: {len(text)} characters")
+    if text:
+        # Print a preview of the extracted text (first 500 chars)
+        preview = text[:500] + ("..." if len(text) > 500 else "")
+        print(f"\nText preview:\n{preview}")
+        
+        # Save the extracted text to a file
+        output_text_file = test_file_path + ".txt"
+        try:
+            with open(output_text_file, "w", encoding="utf-8") as f:
+                f.write(text)
+            print(f"\nExtracted text saved to: {output_text_file}")
+        except Exception as e:
+            print(f"Error saving text to file: {e}")
+    else:
+        print("No text was extracted from the file.")
