@@ -8,7 +8,7 @@
 	let filteredCourtOptions: string[] = [];
 	let showCourtDropdown = false;
 	let courtDropdownRef: HTMLDivElement;
-	
+
 	let judgeSearchInput = '';
 	let filteredJudgeOptions: string[] = [];
 	let showJudgeDropdown = false;
@@ -38,8 +38,8 @@
 		doc_type: '',
 		case_number: '',
 		case_name: '',
-		judge: [] as string[],  // Changed to array for multi-select
-		court: [] as string[],  // Changed to array for multi-select
+		judge: [] as string[], // Changed to array for multi-select
+		court: [] as string[], // Changed to array for multi-select
 		author: '',
 		status: '',
 		date_range: {
@@ -153,8 +153,8 @@
 			doc_type: '',
 			case_number: '',
 			case_name: '',
-			judge: [] as string[],  // Changed to array for multi-select
-			court: [] as string[],  // Changed to array for multi-select
+			judge: [] as string[], // Changed to array for multi-select
+			court: [] as string[], // Changed to array for multi-select
 			author: '',
 			status: '',
 			date_range: {
@@ -179,7 +179,7 @@
 			return dateString;
 		}
 	}
-	
+
 	// Handle clicks outside the dropdowns
 	function handleClickOutside(event: MouseEvent) {
 		if (courtDropdownRef && !courtDropdownRef.contains(event.target as Node)) {
@@ -189,7 +189,7 @@
 			showJudgeDropdown = false;
 		}
 	}
-	
+
 	// Add and remove event listeners for clicks outside the dropdown
 	onMount(() => {
 		document.addEventListener('click', handleClickOutside);
@@ -197,62 +197,60 @@
 			document.removeEventListener('click', handleClickOutside);
 		};
 	});
-	
+
 	// Filter options based on search input
 	function filterOptions(field: 'court' | 'judge', searchInput: string) {
 		if (!fieldOptions[field]) return [];
-		
+
 		if (!searchInput) {
 			return [...fieldOptions[field]];
 		}
-		
+
 		const searchLower = searchInput.toLowerCase();
-		return fieldOptions[field].filter(item => 
-			item.toLowerCase().includes(searchLower)
-		);
+		return fieldOptions[field].filter((item) => item.toLowerCase().includes(searchLower));
 	}
-	
+
 	// Filter court options
 	function filterCourtOptions() {
 		filteredCourtOptions = filterOptions('court', courtSearchInput);
 	}
-	
+
 	// Filter judge options
 	function filterJudgeOptions() {
 		filteredJudgeOptions = filterOptions('judge', judgeSearchInput);
 	}
-	
+
 	// Add an item to a multi-select field
 	function addItem(field: 'court' | 'judge', item: string) {
 		if (!searchParams[field].includes(item)) {
 			searchParams[field] = [...searchParams[field], item];
 		}
 	}
-	
+
 	// Add a court to the selected courts
 	function addCourt(court: string) {
 		addItem('court', court);
 		courtSearchInput = '';
 		filterCourtOptions();
 	}
-	
+
 	// Add a judge to the selected judges
 	function addJudge(judge: string) {
 		addItem('judge', judge);
 		judgeSearchInput = '';
 		filterJudgeOptions();
 	}
-	
+
 	// Remove an item from a multi-select field
 	function removeItem(field: 'court' | 'judge', item: string) {
-		searchParams[field] = searchParams[field].filter(i => i !== item);
+		searchParams[field] = searchParams[field].filter((i) => i !== item);
 	}
-	
+
 	// Remove a court from the selected courts
 	function removeCourt(court: string) {
 		removeItem('court', court);
 	}
-	
+
 	// Remove a judge from the selected judges
 	function removeJudge(judge: string) {
 		removeItem('judge', judge);
@@ -521,28 +519,41 @@
 							</div>
 
 							<div>
-								<label for="judge-search" class="mb-1 block text-xs font-medium text-gray-700">Judges</label>
-								
+								<label for="judge-search" class="mb-1 block text-xs font-medium text-gray-700"
+									>Judges</label
+								>
+
 								<!-- Selected judges tags -->
 								{#if searchParams.judge.length > 0}
 									<div class="mb-2 flex flex-wrap gap-2">
 										{#each searchParams.judge as judge}
-											<div class="flex items-center rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">
+											<div
+												class="flex items-center rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700"
+											>
 												<span class="mr-1 max-w-[200px] truncate">{judge}</span>
-												<button 
-													type="button" 
+												<button
+													type="button"
 													on:click={() => removeJudge(judge)}
 													class="ml-1 text-blue-500 hover:text-blue-700"
 												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-														<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-3 w-3"
+														viewBox="0 0 20 20"
+														fill="currentColor"
+													>
+														<path
+															fill-rule="evenodd"
+															d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+															clip-rule="evenodd"
+														/>
 													</svg>
 												</button>
 											</div>
 										{/each}
 									</div>
 								{/if}
-								
+
 								<!-- Judge search input -->
 								<div class="relative" bind:this={judgeDropdownRef}>
 									<input
@@ -550,21 +561,31 @@
 										id="judge-search"
 										bind:value={judgeSearchInput}
 										on:input={filterJudgeOptions}
-										on:focus={() => { showJudgeDropdown = true; filterJudgeOptions(); }}
+										on:focus={() => {
+											showJudgeDropdown = true;
+											filterJudgeOptions();
+										}}
 										placeholder="Search judges..."
 										class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
 									/>
-									
+
 									<!-- Dropdown for judge options -->
 									{#if showJudgeDropdown && filteredJudgeOptions.length > 0}
-										<div 
+										<div
 											class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5"
 										>
 											{#each filteredJudgeOptions as judge}
 												<button
 													type="button"
-													class="block w-full px-4 py-2 text-left hover:bg-gray-100 {searchParams.judge.includes(judge) ? 'bg-blue-50' : ''}"
-													on:click={() => { addJudge(judge); showJudgeDropdown = false; }}
+													class="block w-full px-4 py-2 text-left hover:bg-gray-100 {searchParams.judge.includes(
+														judge
+													)
+														? 'bg-blue-50'
+														: ''}"
+													on:click={() => {
+														addJudge(judge);
+														showJudgeDropdown = false;
+													}}
 												>
 													{judge}
 												</button>
@@ -576,59 +597,82 @@
 							</div>
 
 							<div>
-								<label for="court-search" class="mb-1 block text-xs font-medium text-gray-700">Courts</label>
-									
-									<!-- Selected courts tags -->
-									{#if searchParams.court.length > 0}
-										<div class="mb-2 flex flex-wrap gap-2">
-											{#each searchParams.court as court}
-												<div class="flex items-center rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">
-													<span class="mr-1 max-w-[200px] truncate">{court}</span>
-													<button 
-														type="button" 
-														on:click={() => removeCourt(court)}
-														class="ml-1 text-blue-500 hover:text-blue-700"
+								<label for="court-search" class="mb-1 block text-xs font-medium text-gray-700"
+									>Courts</label
+								>
+
+								<!-- Selected courts tags -->
+								{#if searchParams.court.length > 0}
+									<div class="mb-2 flex flex-wrap gap-2">
+										{#each searchParams.court as court}
+											<div
+												class="flex items-center rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700"
+											>
+												<span class="mr-1 max-w-[200px] truncate">{court}</span>
+												<button
+													type="button"
+													on:click={() => removeCourt(court)}
+													class="ml-1 text-blue-500 hover:text-blue-700"
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-3 w-3"
+														viewBox="0 0 20 20"
+														fill="currentColor"
 													>
-														<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-															<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-														</svg>
-													</button>
-												</div>
+														<path
+															fill-rule="evenodd"
+															d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+															clip-rule="evenodd"
+														/>
+													</svg>
+												</button>
+											</div>
+										{/each}
+									</div>
+								{/if}
+
+								<!-- Court search input -->
+								<div class="relative" bind:this={courtDropdownRef}>
+									<input
+										type="text"
+										id="court-search"
+										bind:value={courtSearchInput}
+										on:input={filterCourtOptions}
+										on:focus={() => {
+											showCourtDropdown = true;
+											filterCourtOptions();
+										}}
+										placeholder="Search courts..."
+										class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+									/>
+
+									<!-- Dropdown for court options -->
+									{#if showCourtDropdown && filteredCourtOptions.length > 0}
+										<div
+											class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5"
+										>
+											{#each filteredCourtOptions as court}
+												<button
+													type="button"
+													class="block w-full px-4 py-2 text-left hover:bg-gray-100 {searchParams.court.includes(
+														court
+													)
+														? 'bg-blue-50'
+														: ''}"
+													on:click={() => {
+														addCourt(court);
+														showCourtDropdown = false;
+													}}
+												>
+													{court}
+												</button>
 											{/each}
 										</div>
 									{/if}
-									
-									<!-- Court search input -->
-									<div class="relative" bind:this={courtDropdownRef}>
-										<input
-											type="text"
-											id="court-search"
-											bind:value={courtSearchInput}
-											on:input={filterCourtOptions}
-											on:focus={() => { showCourtDropdown = true; filterCourtOptions(); }}
-											placeholder="Search courts..."
-											class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-										/>
-										
-										<!-- Dropdown for court options -->
-										{#if showCourtDropdown && filteredCourtOptions.length > 0}
-											<div 
-												class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5"
-											>
-												{#each filteredCourtOptions as court}
-													<button
-														type="button"
-														class="block w-full px-4 py-2 text-left hover:bg-gray-100 {searchParams.court.includes(court) ? 'bg-blue-50' : ''}"
-														on:click={() => { addCourt(court); showCourtDropdown = false; }}
-													>
-														{court}
-													</button>
-												{/each}
-											</div>
-										{/if}
-									</div>
-									<p class="mt-1 text-xs text-gray-500">Search and click to add multiple courts</p>
 								</div>
+								<p class="mt-1 text-xs text-gray-500">Search and click to add multiple courts</p>
+							</div>
 
 							<!-- Date Range -->
 							<div>
@@ -875,7 +919,8 @@
 										{#if document.metadata.court}
 											<div class="flex items-center">
 												<span class="text-gray-500">Court:</span>
-												<span class="ml-1 truncate font-medium text-gray-900">{document.metadata.court}</span
+												<span class="ml-1 truncate font-medium text-gray-900"
+													>{document.metadata.court}</span
 												>
 											</div>
 										{/if}

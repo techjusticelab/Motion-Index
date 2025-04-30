@@ -1,6 +1,23 @@
-<script>
+<script lang="ts">
+	export const load = async ({ locals: { getSession } }) => {
+		return {
+			session: await getSession()
+		};
+	};
+
 	let { children } = $props();
+	import { user, isLoading } from './lib/stores/auth';
+	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 	import '../app.css';
+
+	// Update the user store when session changes
+	$effect(() => {
+		if ($page.data) {
+			user.set($page.data.session?.user || null);
+			isLoading.set(false);
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-gray-50">
