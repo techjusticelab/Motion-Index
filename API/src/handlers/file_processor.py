@@ -6,6 +6,8 @@ import logging
 import hashlib
 import mimetypes
 import textract
+import tempfile
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -84,8 +86,12 @@ class FileProcessor:
             '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
             '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
             '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.wpd', '.xls', '.xlsx'
+            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
         ]
+        
+        # WPD files are handled separately by converting to PDF first
+        if ext == '.wpd':
+            return True
         
         if ext not in textract_supported:
             logger.warning(f"File extension {ext} not supported by textract: {file_path}")
@@ -105,6 +111,45 @@ class FileProcessor:
             
         return False
     
+    def _convert_wpd_to_pdf(self, wpd_path: str) -> Optional[str]:
+        """
+        Convert a WPD file to PDF using LibreOffice or another converter.
+        
+        Args:
+            wpd_path: Path to the WPD file
+            
+        Returns:
+            Path to the converted PDF file or None if conversion failed
+        """
+        try:
+            # Create a temporary directory for the output
+            with tempfile.TemporaryDirectory() as temp_dir:
+                pdf_path = os.path.join(temp_dir, "converted.pdf")
+                
+                # Use LibreOffice to convert WPD to PDF
+                # Adjust the command based on your system's configuration
+                cmd = ["libreoffice", "--headless", "--convert-to", "pdf", 
+                       "--outdir", temp_dir, wpd_path]
+                
+                process = subprocess.run(cmd, capture_output=True, text=True)
+                
+                if process.returncode != 0:
+                    logger.error(f"Failed to convert WPD to PDF: {process.stderr}")
+                    return None
+                
+                # Create a temporary file that will persist after this function returns
+                temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+                temp_pdf.close()
+                
+                # Copy the converted PDF to our persistent temp file
+                with open(pdf_path, 'rb') as src, open(temp_pdf.name, 'wb') as dst:
+                    dst.write(src.read())
+                
+                return temp_pdf.name
+        except Exception as e:
+            logger.error(f"Error converting WPD to PDF: {e}")
+            return None
+    
     def extract_text(self, file_path: str) -> str:
         """
         Extract text from a document file.
@@ -122,6 +167,17 @@ class FileProcessor:
         path = Path(file_path)
         ext = path.suffix.lower()
         
+        # Special handling for WPD files - convert to PDF first
+        temp_pdf_path = None
+        if ext == '.wpd':
+            logger.info(f"Converting WPD file to PDF: {file_path}")
+            temp_pdf_path = self._convert_wpd_to_pdf(file_path)
+            if temp_pdf_path:
+                file_path = temp_pdf_path
+            else:
+                logger.error(f"Failed to convert WPD file to PDF: {file_path}")
+                return ""
+        
         text = ""
         try:
             # Process the file using textract
@@ -137,5 +193,12 @@ class FileProcessor:
         except Exception as e:
             logger.error(f"Error extracting text from {file_path}: {e}")
             return ""
+        finally:
+            # Clean up the temporary PDF file if one was created
+            if temp_pdf_path and os.path.exists(temp_pdf_path):
+                try:
+                    os.unlink(temp_pdf_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temporary PDF file {temp_pdf_path}: {e}")
             
         return text
