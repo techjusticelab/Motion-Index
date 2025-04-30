@@ -687,6 +687,7 @@ class ElasticsearchHandler:
             logger.error(f"Error getting metadata field values: {e}")
             return []
     
+
     def get_document_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the indexed documents.
@@ -702,14 +703,14 @@ class ElasticsearchHandler:
             # Get document type breakdown
             doc_types = self.get_document_types()
             
-            # Get date range of documents
+            # Get date range of documents from metadata.timestamp
             date_range_response = self.es.search(
                 index=self.index_name,
                 body={
                     "size": 0,
                     "aggs": {
-                        "min_date": {"min": {"field": "created_at"}},
-                        "max_date": {"max": {"field": "created_at"}}
+                        "min_date": {"min": {"field": "metadata.timestamp"}},
+                        "max_date": {"max": {"field": "metadata.timestamp"}}
                     }
                 }
             )
@@ -726,6 +727,7 @@ class ElasticsearchHandler:
                     "newest": max_date
                 }
             }
+        
         except Exception as e:
             logger.error(f"Error getting document stats: {e}")
             return {"total_documents": 0}

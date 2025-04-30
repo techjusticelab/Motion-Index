@@ -13,7 +13,7 @@ export function filterOptions(allOptions: string[] = [], searchInput: string): s
   if (!searchInput) {
     return [...allOptions];
   }
-  
+
   const searchLower = searchInput.toLowerCase();
   return allOptions.filter((item) => item.toLowerCase().includes(searchLower));
 }

@@ -11,7 +11,6 @@
 		DocumentStats
 	} from './utils/search_types';
 
-
 	import SearchForm from './lib/components/Search/SearchForm.svelte';
 
 	import SearchResults from './lib/components/Search/SearchResults.svelte';
@@ -70,6 +69,11 @@
 
 			// Fetch document stats
 			documentStats = await api.getDocumentStats();
+			console.log('Document stats:', documentStats);
+			if (documentStats?.date_range) {
+				searchParams.date_range.start = documentStats.date_range.oldest;
+				searchParams.date_range.end = documentStats.date_range.newest;
+			}
 
 			// Fetch all field options
 			fieldOptions = await api.getAllFieldOptions();
@@ -152,8 +156,8 @@
 			author: '',
 			status: '',
 			date_range: {
-				start: '',
-				end: ''
+				start: documentStats?.date_range?.oldest || '',
+				end: documentStats?.date_range?.newest || ''
 			},
 			size: 10,
 			sort_by: 'created_at',
@@ -190,9 +194,9 @@
 						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
 							<p class="text-xs text-blue-100">Date Range</p>
 							<p class="truncate text-sm font-medium text-white">
-								{formatDate(documentStats.date_range.oldest).slice(0, 6)} - {formatDate(
+								{formatDate(documentStats.date_range.oldest)} - {formatDate(
 									documentStats.date_range.newest
-								).slice(0, 6)}
+								)}
 							</p>
 						</div>
 					{/if}

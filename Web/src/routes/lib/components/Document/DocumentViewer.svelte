@@ -15,7 +15,6 @@
 	export let isOpen = false;
 
 	// State
-	let showMetadata = true;
 	let textContentFormatted = '';
 	let previousDocumentId = null;
 	let mounted = false;
@@ -55,7 +54,6 @@
 
 	// Reset component state
 	function resetState() {
-		showMetadata = false;
 		textContentFormatted = '';
 		previousDocumentId = null;
 
@@ -73,11 +71,6 @@
 		dispatch('close');
 	}
 
-	// Toggle metadata display
-	function toggleMetadata() {
-		showMetadata = !showMetadata;
-	}
-
 	// Format date
 	function formatDate(dateString: string): string {
 		if (!dateString) return 'N/A';
@@ -91,6 +84,24 @@
 		} catch (err) {
 			return dateString;
 		}
+	}
+
+	// Download document function
+	function downloadDocument() {
+		if (!docData) return;
+
+		// This is a placeholder - implement actual download logic
+		dispatch('download', { document: docData });
+		console.log('Download document:', docData.file_name);
+	}
+
+	// Add to case function
+	function addToCase() {
+		if (!docData) return;
+
+		// This is a placeholder - implement actual add to case logic
+		dispatch('addToCase', { document: docData });
+		console.log('Add to case:', docData.file_name);
 	}
 
 	// Only execute client-side code after component is mounted
@@ -110,39 +121,26 @@
 <!-- Document Popup -->
 {#if docData && isOpen}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 p-4 backdrop-blur-sm"
 		on:click={closeDocumentPopup}
 	>
 		<div
-			class="relative h-[85vh] w-full max-w-5xl rounded-lg bg-white shadow-2xl"
+			class="relative flex h-[90vh] w-[95%] max-w-6xl overflow-hidden rounded-xl bg-white/95 shadow-2xl"
 			on:click|stopPropagation
 		>
-			<!-- Popup Header -->
-			<div class="flex items-center justify-between border-b border-gray-200 p-4">
-				<div>
-					<h2 class="truncate text-lg font-semibold text-gray-800">
-						{docData.metadata?.document_name || docData.file_name}
-					</h2>
-					{#if docData.doc_type}
-						<span class="text-sm text-gray-600">{docData.doc_type}</span>
-					{/if}
-				</div>
-				<div class="flex items-center space-x-2">
+			<!-- Metadata Panel (Left Side) -->
+			<div
+				class="flex h-full w-72 flex-shrink-0 flex-col border-r border-gray-200/60 bg-gray-50/70"
+			>
+				<!-- Action Buttons -->
+				<div class="flex space-x-2 border-b border-gray-200/60 p-3">
 					<button
-						class="rounded-lg bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-100"
-						on:click|stopPropagation={toggleMetadata}
-						aria-label={showMetadata ? 'Hide document metadata' : 'Show document metadata'}
-					>
-						{showMetadata ? 'Hide Metadata' : 'Show Metadata'}
-					</button>
-					<button
-						class="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100"
-						on:click={closeDocumentPopup}
-						aria-label="Close document viewer"
+						class="flex flex-1 items-center justify-center rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-blue-600"
+						on:click={downloadDocument}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6"
+							class="mr-1 h-3.5 w-3.5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -151,84 +149,147 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
+								d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
 							/>
 						</svg>
+						Download
+					</button>
+					<button
+						class="flex flex-1 items-center justify-center rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-green-600"
+						on:click={addToCase}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-3.5 w-3.5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+							/>
+						</svg>
+						Add to Case
 					</button>
 				</div>
-			</div>
 
-			<!-- Metadata Panel (conditionally shown) -->
-			{#if showMetadata && docData}
-				<div class="border-b border-gray-200 bg-gray-50 p-4">
-					<h3 class="mb-2 text-sm font-medium text-gray-700">Document Metadata</h3>
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+				<!-- Metadata Content -->
+				<div class="flex-grow overflow-auto p-3">
+					<div class="space-y-2.5">
 						<!-- Document type -->
 						{#if docData.doc_type}
-							<div class="rounded border border-gray-200 bg-white p-2 shadow-sm">
-								<span class="block text-xs text-gray-500">Document Type</span>
-								<span class="font-medium text-gray-800">{docData.doc_type}</span>
+							<div class="rounded-lg border border-gray-200/60 bg-white/80 p-2.5 shadow-sm">
+								<span class="mb-0.5 block text-xs text-gray-500">Document Type</span>
+								<span class="text-sm font-medium text-gray-800">{docData.doc_type}</span>
 							</div>
 						{/if}
 
 						<!-- Creation date -->
 						{#if docData.created_at}
-							<div class="rounded border border-gray-200 bg-white p-2 shadow-sm">
-								<span class="block text-xs text-gray-500">Created</span>
-								<span class="font-medium text-gray-800">{formatDate(docData.created_at)}</span>
+							<div class="rounded-lg border border-gray-200/60 bg-white/80 p-2.5 shadow-sm">
+								<span class="mb-0.5 block text-xs text-gray-500">Created</span>
+								<span class="text-sm font-medium text-gray-800"
+									>{formatDate(docData.created_at)}</span
+								>
 							</div>
 						{/if}
+
+						<!-- File name -->
+						<div class="rounded-lg border border-gray-200/60 bg-white/80 p-2.5 shadow-sm">
+							<span class="mb-0.5 block text-xs text-gray-500">File Name</span>
+							<span class="break-all text-sm font-medium text-gray-800">{docData.file_name}</span>
+						</div>
 
 						<!-- Dynamic metadata fields -->
 						{#if docData.metadata}
 							{#each Object.entries(docData.metadata) as [key, value]}
 								{#if key !== 'document_name' && value !== null && value !== undefined && value !== ''}
-									<div class="rounded border border-gray-200 bg-white p-2 shadow-sm">
-										<span class="block text-xs text-gray-500"
+									<div class="rounded-lg border border-gray-200/60 bg-white/80 p-2.5 shadow-sm">
+										<span class="mb-0.5 block text-xs text-gray-500"
 											>{key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}</span
 										>
-										<span class="block truncate font-medium text-gray-800">{value}</span>
+										<span class="block break-words text-sm font-medium text-gray-800">{value}</span>
 									</div>
 								{/if}
 							{/each}
 						{/if}
 					</div>
 				</div>
-			{/if}
+			</div>
 
-			<!-- Document Content -->
-			<div class="h-[calc(100%-4rem-1px)] w-full {showMetadata ? 'h-[calc(100%-13rem-2px)]' : ''}">
-				{#if docData.text}
-					<!-- Text content viewer with styled layout -->
-					<div class="h-full overflow-auto bg-gray-50 p-6 text-gray-800">
-						<div class="mx-auto max-w-4xl rounded-lg bg-white p-8 shadow-sm">
-							<pre
-								class="whitespace-pre-wrap font-serif text-base leading-relaxed">{docData.text}</pre>
-						</div>
+			<!-- Document Content (Right Side) -->
+			<div class="flex h-full min-w-0 flex-grow flex-col">
+				<!-- Popup Header -->
+				<div class="flex items-center justify-between border-b border-gray-200/60 p-3">
+					<div class="max-w-[calc(100%-40px)] truncate px-2">
+						<h2 class="truncate text-base font-medium text-gray-800">
+							{docData.metadata?.document_name || docData.file_name}
+						</h2>
+						{#if docData.doc_type}
+							<span class="text-xs text-gray-600">{docData.doc_type}</span>
+						{/if}
 					</div>
-				{:else}
-					<div class="flex h-full flex-col items-center justify-center p-8 text-center">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="mb-4 h-16 w-16 text-gray-300"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							aria-hidden="true"
+					<div class="flex items-center">
+						<button
+							class="rounded-full p-1.5 text-gray-500 transition-colors hover:bg-gray-100/70"
+							on:click={closeDocumentPopup}
+							aria-label="Close document viewer"
 						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-							/>
-						</svg>
-						<p class="mb-2 text-gray-600">Document content not available</p>
-						<p class="text-sm text-gray-500">
-							This document doesn't have any text content to display.
-						</p>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
+							</svg>
+						</button>
 					</div>
-				{/if}
+				</div>
+
+				<!-- Document Content -->
+				<div class="flex-grow overflow-auto">
+					{#if docData.text}
+						<!-- Text content viewer with styled layout -->
+						<div class="h-full overflow-auto bg-gray-50/40 p-5 text-gray-800">
+							<div class="mx-auto max-w-4xl rounded-lg bg-white/90 p-6 shadow-sm">
+								<pre
+									class="whitespace-pre-wrap font-sans text-sm leading-relaxed">{docData.text}</pre>
+							</div>
+						</div>
+					{:else}
+						<div class="flex h-full flex-col items-center justify-center p-8 text-center">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mb-4 h-14 w-14 text-gray-300"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+								aria-hidden="true"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+								/>
+							</svg>
+							<p class="mb-2 text-gray-600">Document content not available</p>
+							<p class="text-sm text-gray-500">
+								This document doesn't have any text content to display.
+							</p>
+						</div>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
