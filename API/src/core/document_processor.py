@@ -215,10 +215,11 @@ class DocumentProcessor:
                         author=llm_result.get('author'),
                         judge=llm_result.get('judge'),
                         court=llm_result.get('court'),
+                        legal_tags=llm_result.get('legal_tags'),
                         timestamp= convert_timestamp(llm_result.get('timestamp'))
                     )
                     
-                    logger.info(f"Document classified as: {doc_type}, Timestamp: {metadata_obj.timestamp}")
+                    logger.info(f"Document classified as: {doc_type}, Timestamp: {metadata_obj.timestamp}, Legal Tags: {metadata_obj.legal_tags}")
                 except Exception as e:
                     logger.error(f"Error during LLM classification: {e}")
                     # Fall back to basic metadata

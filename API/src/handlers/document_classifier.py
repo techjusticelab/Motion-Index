@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional, Union
 import openai
 
-from src.utils.constants import DOCUMENT_TYPES, OPENAI_MODEL
+from src.utils.constants import DOCUMENT_TYPES, OPENAI_MODEL, LEGAL_TAGS_LIST
 
 # Configure logging
 logger = logging.getLogger("document_classifier")
@@ -25,7 +25,7 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
         client: An initialized OpenAI client instance.
         
     Returns:
-        A dictionary containing the classified document type and other extracted fields,
+        A dictionary containing the classified document type, legal tags, and other extracted fields,
         or a dictionary with 'document_type' as 'Unknown' if parsing fails.
     """
     logger.info("Attempting LLM classification and extraction...")
@@ -43,14 +43,20 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
         "case_number": "...",   // e.g., "3:24-cv-01234-ABC", "INF-xxxxxxx" (null if not found)
         "author": "...",        // Authoring attorney, law firm, or entity (null if not found)
         "judge": "...",         // Presiding judge's name (null if not applicable/found)
-        "court": "..."          // Name of the court, including county/district if specified (null if not applicable/found)
+        "court": "...",         // Name of the court, including county/district if specified (null if not applicable/found)
+        "legal_tags": [...]     // Array of relevant legal tags from the California Criminal Law Guide 
+                                // (e.g., ["Search and Seizure", "Warrantless Search", "Miranda Rights"])
     }}
     """
 
+    # Define a comprehensive list of legal tags based on Witkin California Criminal Law Guide
+    
+
     prompt = f"""
-    Analyze the following legal document text. Perform two tasks:
+    Analyze the following legal document text. Perform these tasks:
     1. Classify the document into ONE of the following categories: {', '.join(ALLOWED_TYPES_LIST)}
-    2. Extract the specified fields from the text.
+    2. Identify ALL relevant legal tags from the comprehensive list provided
+    3. Extract the specified fields from the text.
 
     Pay close attention to these fields:
     - "subject": Provide a concise summary of the main topic or purpose (5-10 words)
@@ -60,12 +66,23 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
       * If multiple dates appear, prioritize the filing date over other dates
       * Format as YYYY-MM-DD only
       * Only use null if absolutely no filing/signature/publication date can be found
+    - "legal_tags": Identify 2-5 most relevant legal tags from the provided list that apply to this document
+      * Look for topic matter, procedural aspects, legal doctrines, and key issues
+      * Tags should reflect both document type and substantive legal issues addressed
+      * If document discusses search and seizure without a warrant, include BOTH "Search and Seizure" and "Warrantless Search"
+      * Choose the most specific applicable tags (e.g., "Consent Searches" rather than just "Search and Seizure")
 
     Respond ONLY with a single, valid JSON object matching this exact structure:
     {json_format_instructions}
 
     If a field cannot be found or is not applicable, use the JSON value null.
     Do not include any explanations, apologies, or text outside the JSON object.
+
+    Available legal tags include:
+    {', '.join(LEGAL_TAGS_LIST[:20])}
+    {', '.join(LEGAL_TAGS_LIST[20:40])}
+    {', '.join(LEGAL_TAGS_LIST[40:60])}
+    ... and many more from the Witkin California Criminal Law Guide.
 
     Document Text:
     ---
@@ -75,16 +92,16 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
     JSON Output:
     """
 
-    default_result = {"document_type": DOCUMENT_TYPES['unknown']}
+    default_result = {"document_type": DOCUMENT_TYPES['unknown'], "legal_tags": []}
     try:
         instruction_keys = json.loads(json_format_instructions).keys()
     except json.JSONDecodeError:
         # Fallback keys if instruction string is somehow invalid
         instruction_keys = ["document_type", "subject", "status", "timestamp", "case_name", 
-                           "case_number", "author", "judge", "court"]
+                           "case_number", "author", "judge", "court", "legal_tags"]
 
     for key in instruction_keys:
-        if key != "document_type":
+        if key != "document_type" and key != "legal_tags":
             default_result[key] = None
 
     try:
@@ -92,11 +109,11 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
         response = client.ChatCompletion.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are an expert legal document analyzer. You meticulously classify documents and extract key information based on the provided text, responding only in the specified valid JSON format."},
+                {"role": "system", "content": "You are an expert legal document analyzer. You meticulously classify documents, identify relevant legal tags, and extract key information based on the provided text, responding only in the specified valid JSON format."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=600,
+            max_tokens=800,  # Increased token limit to accommodate tags
             n=1,
             stop=None,
         )
@@ -116,7 +133,10 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
             # Create final result with all expected fields
             final_result = {}
             for key in default_result:
-                final_result[key] = parsed_json.get(key, None)
+                if key == "legal_tags" and key not in parsed_json:
+                    final_result[key] = []
+                else:
+                    final_result[key] = parsed_json.get(key, default_result[key])
 
             # Validate the document_type
             if final_result.get("document_type") not in ALLOWED_TYPES_LIST:
@@ -127,13 +147,47 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
                     DOCUMENT_TYPES['unknown']
                 )
                 final_result['document_type'] = found_type_in_raw
+            
+            # Validate legal tags
+            if not isinstance(final_result.get("legal_tags"), list):
+                if final_result.get("legal_tags") is None:
+                    final_result["legal_tags"] = []
+                else:
+                    # Convert to list if it's a string
+                    try:
+                        tag_text = str(final_result.get("legal_tags"))
+                        if "," in tag_text:
+                            final_result["legal_tags"] = [tag.strip() for tag in tag_text.split(",")]
+                        else:
+                            final_result["legal_tags"] = [tag_text]
+                    except:
+                        final_result["legal_tags"] = []
+            
+            # Validate that tags are from the approved list
+            if final_result.get("legal_tags"):
+                validated_tags = []
+                for tag in final_result["legal_tags"]:
+                    # Exact match to approved tag
+                    if tag in LEGAL_TAGS_LIST:
+                        validated_tags.append(tag)
+                    else:
+                        # Try to find closest matching tag
+                        closest_tag = next(
+                            (t for t in LEGAL_TAGS_LIST if re.search(r'\b' + re.escape(tag) + r'\b', t, re.IGNORECASE) or 
+                                                           re.search(r'\b' + re.escape(t) + r'\b', tag, re.IGNORECASE)),
+                            None
+                        )
+                        if closest_tag:
+                            validated_tags.append(closest_tag)
+                
+                final_result["legal_tags"] = validated_tags
 
             # Clean up values
             for key, value in final_result.items():
-                if value == "null" or value == "N/A" or value == "" or (isinstance(value, str) and not value.strip()):
+                if key != "legal_tags" and (value == "null" or value == "N/A" or value == "" or (isinstance(value, str) and not value.strip())):
                     final_result[key] = None
 
-            logger.info(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}', Timestamp: '{final_result.get('timestamp')}'")
+            logger.info(f"LLM classification/extraction successful: Type '{final_result.get('document_type')}', Tags: {final_result.get('legal_tags')}, Timestamp: '{final_result.get('timestamp')}'")
             return final_result
 
         except json.JSONDecodeError as json_e:
@@ -145,7 +199,18 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
                 DOCUMENT_TYPES['unknown']
             )
             default_result['document_type'] = found_type
-            logger.info(f"Fallback: Extracted type '{found_type}' from raw response.")
+            
+            # Try to extract tags from raw response
+            found_tags = []
+            for tag in LEGAL_TAGS_LIST:
+                if re.search(r'\b' + re.escape(tag) + r'\b', llm_response_content, re.IGNORECASE):
+                    found_tags.append(tag)
+                    if len(found_tags) >= 5:  # Limit to 5 tags
+                        break
+            
+            default_result['legal_tags'] = found_tags
+            
+            logger.info(f"Fallback: Extracted type '{found_type}' and tags {found_tags} from raw response.")
             return default_result
 
     except openai.APIError as e:
@@ -154,7 +219,6 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
     except Exception as e:
         logger.error(f"An unexpected error occurred during LLM processing: {e}")
         return default_result
-
 
 def process_document_llm(
     document_name: str,
@@ -180,6 +244,7 @@ def process_document_llm(
         "timestamp": None,
         "case_name": None,
         "case_number": None,
+        "legal_tags": None,
         "author": None,
         "judge": None,
         "court": None,

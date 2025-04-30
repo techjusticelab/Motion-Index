@@ -3,6 +3,7 @@ Metadata model for document information.
 """
 from datetime import datetime
 from typing import Dict, Any, Optional
+from typing import List
 
 
 class Metadata:
@@ -20,7 +21,8 @@ class Metadata:
         case_number: Optional[str] = None,
         author: Optional[str] = None,
         judge: Optional[str] = None,
-        court: Optional[str] = None
+        court: Optional[str] = None,
+        legal_tags: Optional[List[str]] = None
     ):
         """
         Initialize a Metadata object.
@@ -47,6 +49,7 @@ class Metadata:
         self.author = author
         self.judge = judge
         self.court = court
+        self.legal_tags = legal_tags
         
     def __str__(self) -> str:
         """String representation of the metadata."""
@@ -71,7 +74,8 @@ class Metadata:
             "case_number": self.case_number,
             "author": self.author,
             "judge": self.judge,
-            "court": self.court
+            "court": self.court,
+            "legal_tags": self.legal_tags
         }
         
         # Properly format timestamp as ISO format string if it exists
