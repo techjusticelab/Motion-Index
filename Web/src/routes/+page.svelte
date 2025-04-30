@@ -20,6 +20,10 @@
 		null;
 	let showDocumentPopup = false;
 
+	// $: if (showDocumentPopup) {
+	// 	activeDocument = null;
+	// }
+
 	// State variables
 	let searchParams = {
 		query: '',
@@ -1032,4 +1036,11 @@
 </div>
 
 <!-- Document Viewer Component -->
-<DocumentViewer document={activeDocument} isOpen={showDocumentPopup} />
+<DocumentViewer
+	docData={activeDocument}
+	isOpen={showDocumentPopup}
+	on:close={() => {
+		activeDocument = null;
+		showDocumentPopup = false;
+	}}
+/>

@@ -168,6 +168,7 @@
 			return 'generic';
 		}
 	}
+
 </script>
 
 <div class="flex min-h-[80vh] items-center justify-center">
