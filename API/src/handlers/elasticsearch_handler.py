@@ -197,7 +197,8 @@ class ElasticsearchHandler:
                         size: int = 10,
                         from_value: int = 0,
                         sort_by: Optional[str] = None,
-                        sort_order: str = "desc") -> Dict[str, Any]:
+                        sort_order: str = "desc",
+                        use_fuzzy: bool = False) -> Dict[str, Any]:
         """
         Search for documents with advanced filtering options.
         
@@ -209,11 +210,15 @@ class ElasticsearchHandler:
             date_range: Optional date range filter for document timestamps
                 Example: {"start": "2023-01-01", "end": "2023-12-31"}
             size: Maximum number of results to return
+            from_value: Starting index for pagination
             sort_by: Field to sort results by (e.g., "created_at", "metadata.timestamp")
             sort_order: Sort order ("asc" or "desc")
-            
+            use_fuzzy: Whether to use fuzzy matching for the query (default: False)
+                When False, performs exact matching which is better for specific terms like "DUI"
+                When True, allows for typos and variations using Elasticsearch's fuzzy matching
+        
         Returns:
-            List of matching documents
+            Dictionary containing search results and metadata
         """
         try:
             # Build the query
@@ -246,20 +251,54 @@ class ElasticsearchHandler:
                         }
                     })
                 else:
-                    # Use multi_match for simple queries with fuzzy matching
-                    must_clauses.append({
-                        "multi_match": {
-                            "query": query,
-                            "fields": [
-                                "text^1",  # Text content with normal weight
-                                "metadata.subject^2",  # Subject with higher weight
-                                "metadata.case_name^2", 
-                                "file_name^1.5"
-                            ],
-                            "type": "best_fields",
-                            "fuzziness": "AUTO"
-                        }
-                    })
+                    # For exact matching, use a combination of match and match_phrase
+                    # The match_phrase ensures exact phrases are prioritized
+                    if use_fuzzy:
+                        # Use fuzzy matching only when explicitly requested
+                        must_clauses.append({
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "text^1",  # Text content with normal weight
+                                    "metadata.subject^2",  # Subject with higher weight
+                                    "metadata.case_name^2", 
+                                    "file_name^1.5"
+                                ],
+                                "type": "best_fields",
+                                "fuzziness": "AUTO"
+                            }
+                        })
+                    else:
+                        # For non-fuzzy search, use exact matching
+                        # First add a standard multi_match without fuzziness
+                        must_clauses.append({
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "text^1",  # Text content with normal weight
+                                    "metadata.subject^2",  # Subject with higher weight
+                                    "metadata.case_name^2", 
+                                    "file_name^1.5"
+                                ],
+                                "type": "best_fields",
+                                "operator": "AND"
+                            }
+                        })
+                        
+                        # Also add a match_phrase query to prioritize exact phrases
+                        must_clauses.append({
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "text^2",  # Higher weight for exact matches
+                                    "metadata.subject^3",
+                                    "metadata.case_name^3",
+                                    "file_name^2.5"
+                                ],
+                                "type": "phrase",
+                                "boost": 2.0  # Give exact matches a higher boost
+                            }
+                        })
             
             # Document type filter
             if doc_type:

@@ -76,6 +76,7 @@ class SearchRequest(BaseModel):
     sort_by: Optional[str] = None
     sort_order: str = Field(default="desc", pattern="^(asc|desc)$")
     page: int = Field(default=1, ge=1)
+    use_fuzzy: bool = Field(default=False, description="Whether to use fuzzy matching for search queries")
 
 class MetadataFieldRequest(BaseModel):
     field: str
@@ -131,7 +132,8 @@ async def search_documents(search_request: SearchRequest):
             date_range=search_request.date_range,
             size=search_request.size,
             sort_by=search_request.sort_by,
-            sort_order=search_request.sort_order
+            sort_order=search_request.sort_order,
+            use_fuzzy=search_request.use_fuzzy
         )
         return results
     except Exception as e:
