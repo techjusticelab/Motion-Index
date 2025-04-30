@@ -123,3 +123,21 @@ export async function getMetadataFields(): Promise<{ fields: MetadataField[] }> 
     throw error;
   }
 }
+
+export async function categoriseDocument(file: File): Promise<any> {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await axios.post(`${API_URL}/categorise`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error("Error categorising document:", error);
+    throw error;
+  }
+}

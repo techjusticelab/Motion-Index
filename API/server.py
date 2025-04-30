@@ -137,12 +137,6 @@ async def search_documents(search_request: SearchRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/categorise")
-async def categorise_documents(search_request: SearchRequest):
-    """
-    Categorise a document
-    """
-    
 
 @app.get("/document-types")
 async def get_document_types():
