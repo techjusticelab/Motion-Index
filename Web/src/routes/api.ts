@@ -8,7 +8,7 @@ export interface SearchParams {
   doc_type?: string;
   case_number?: string;
   case_name?: string;
-  judge?: string;
+  judge?: string | string[];
   court?: string | string[];
   author?: string;
   status?: string;

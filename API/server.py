@@ -67,7 +67,7 @@ class SearchRequest(BaseModel):
     doc_type: Optional[str] = None
     case_number: Optional[str] = None
     case_name: Optional[str] = None
-    judge: Optional[str] = None
+    judge: Optional[Union[str, List[str]]] = None
     court: Optional[Union[str, List[str]]] = None
     author: Optional[str] = None
     status: Optional[str] = None

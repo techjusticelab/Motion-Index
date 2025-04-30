@@ -320,70 +320,82 @@ class ElasticsearchHandler:
                     "term": {"doc_type.keyword": doc_type}
                 })
             
+            # Helper function for creating precise field queries
+            def create_precise_field_query(field, value, normalize_fn=None):
+                """Create a precise query for a field that supports both exact and fuzzy matching."""
+                if isinstance(value, list):
+                    # Handle multiple selections (OR condition)
+                    should_clauses = []
+                    for item in value:
+                        # Apply normalization if provided
+                        normalized_value = normalize_fn(item) if normalize_fn else item
+                        
+                        # Create a query with exact and fuzzy matching options
+                        query = {
+                            "bool": {
+                                "should": [
+                                    # Exact match on the normalized value
+                                    {"term": {f"metadata.{field}.keyword": normalized_value}},
+                                    # Exact match on the original value
+                                    {"term": {f"metadata.{field}.keyword": item}},
+                                    # Strict match query as fallback
+                                    {"match": {f"metadata.{field}": {
+                                        "query": normalized_value,
+                                        "operator": "and"
+                                    }}}
+                                ],
+                                "minimum_should_match": 1
+                            }
+                        }
+                        should_clauses.append(query)
+                    
+                    # Return a bool query with all the should clauses
+                    if should_clauses:
+                        return {
+                            "bool": {
+                                "should": should_clauses,
+                                "minimum_should_match": 1
+                            }
+                        }
+                    return None
+                else:
+                    # Single value selection
+                    normalized_value = normalize_fn(value) if normalize_fn else value
+                    
+                    # Return a query with exact and fuzzy matching options
+                    return {
+                        "bool": {
+                            "should": [
+                                # Exact match on the normalized value
+                                {"term": {f"metadata.{field}.keyword": normalized_value}},
+                                # Exact match on the original value
+                                {"term": {f"metadata.{field}.keyword": value}},
+                                # Strict match query as fallback
+                                {"match": {f"metadata.{field}": {
+                                    "query": normalized_value,
+                                    "operator": "and"
+                                }}}
+                            ],
+                            "minimum_should_match": 1
+                        }
+                    }
+            
             # Metadata filters
             if metadata_filters:
                 for field, value in metadata_filters.items():
                     if value is not None:
-                        # Special handling for court field to handle normalized court names
+                        # Special handling for fields that need precise matching
                         if field == 'court':
-                            # Handle multiple court selections
-                            if isinstance(value, list):
-                                # Create a should clause for multiple courts (OR condition)
-                                should_clauses = []
-                                for court_name in value:
-                                    # Normalize each court name
-                                    normalized_court = normalize_court_name(court_name)
-                                    
-                                    # Use a combination of term and match queries for more precise filtering
-                                    court_query = {
-                                        "bool": {
-                                            "should": [
-                                                # Exact match on the normalized court name
-                                                {"term": {f"metadata.{field}.keyword": normalized_court}},
-                                                # Exact match on the original court name
-                                                {"term": {f"metadata.{field}.keyword": court_name}},
-                                                # Fallback to match query with high minimum_should_match
-                                                {"match": {f"metadata.{field}": {
-                                                    "query": normalized_court,
-                                                    "operator": "and"
-                                                }}}
-                                            ],
-                                            "minimum_should_match": 1
-                                        }
-                                    }
-                                    should_clauses.append(court_query)
-                                
-                                # Add the should clause to the filter
-                                if should_clauses:
-                                    filter_clauses.append({
-                                        "bool": {
-                                            "should": should_clauses,
-                                            "minimum_should_match": 1
-                                        }
-                                    })
-                            else:
-                                # Single court selection - normalize and match
-                                normalized_court = normalize_court_name(value)
-                                
-                                # Use a combination of term and match queries for more precise filtering
-                                court_query = {
-                                    "bool": {
-                                        "should": [
-                                            # Exact match on the normalized court name
-                                            {"term": {f"metadata.{field}.keyword": normalized_court}},
-                                            # Exact match on the original court name
-                                            {"term": {f"metadata.{field}.keyword": value}},
-                                            # Fallback to match query with high minimum_should_match
-                                            {"match": {f"metadata.{field}": {
-                                                "query": normalized_court,
-                                                "operator": "and"
-                                            }}}
-                                        ],
-                                        "minimum_should_match": 1
-                                    }
-                                }
-                                filter_clauses.append(court_query)
-                        # Handle different field types appropriately
+                            # Use court name normalization
+                            query = create_precise_field_query(field, value, normalize_court_name)
+                            if query:
+                                filter_clauses.append(query)
+                        elif field == 'judge':
+                            # Use precise matching for judges (without normalization)
+                            query = create_precise_field_query(field, value)
+                            if query:
+                                filter_clauses.append(query)
+                        # Handle other field types appropriately
                         elif isinstance(value, list):
                             # For list values, use terms query (OR condition)
                             filter_clauses.append({
