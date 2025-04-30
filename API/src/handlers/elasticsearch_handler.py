@@ -14,6 +14,7 @@ from src.utils.constants import (
     ES_DOCUMENT_MAPPING,
     ES_BULK_CHUNK_SIZE
 )
+from src.utils.text_normalizer import normalize_court_name, group_similar_court_names
 
 # Configure logging
 logger = logging.getLogger("elasticsearch_handler")
@@ -119,8 +120,15 @@ class ElasticsearchHandler:
             True if successful, False otherwise
         """
         try:
+            # Convert document to dictionary
             doc_dict = document.to_dict()
-            self.es.index(index=self.index_name, document=doc_dict, id=document.hash)
+            
+            # Normalize court name if present in metadata
+            if doc_dict.get('metadata', {}).get('court'):
+                doc_dict['metadata']['court'] = normalize_court_name(doc_dict['metadata']['court'])
+            
+            # Index the document
+            self.es.index(index=self.index_name, body=doc_dict, id=document.hash)
             logger.info(f"Indexed document: {document.file_name}")
             return True
         except Exception as e:
@@ -142,14 +150,20 @@ class ElasticsearchHandler:
         error_count = 0
         
         # Convert documents to ES actions
-        actions = [
-            {
+        actions = []
+        for doc in documents:
+            # Convert document to dictionary
+            doc_dict = doc.to_dict()
+            
+            # Normalize court name if present in metadata
+            if doc_dict.get('metadata', {}).get('court'):
+                doc_dict['metadata']['court'] = normalize_court_name(doc_dict['metadata']['court'])
+            
+            actions.append({
                 "_index": self.index_name,
                 "_id": doc.hash,
-                "_source": doc.to_dict()
-            }
-            for doc in documents
-        ]
+                "_source": doc_dict
+            })
         
         # Bulk index in chunks
         for i in range(0, len(actions), chunk_size):
@@ -310,8 +324,18 @@ class ElasticsearchHandler:
             if metadata_filters:
                 for field, value in metadata_filters.items():
                     if value is not None:
+                        # Special handling for court field to handle normalized court names
+                        if field == 'court':
+                            # Normalize the court name in the search query
+                            normalized_court = normalize_court_name(value)
+                            
+                            # Use a more flexible match for court names
+                            # This will match both the normalized and original court names
+                            filter_clauses.append({
+                                "match": {f"metadata.{field}": normalized_court}
+                            })
                         # Handle different field types appropriately
-                        if isinstance(value, list):
+                        elif isinstance(value, list):
                             # For list values, use terms query (OR condition)
                             filter_clauses.append({
                                 "terms": {f"metadata.{field}": value}
@@ -457,13 +481,16 @@ class ElasticsearchHandler:
             if field in ["doc_type", "category"]:
                 agg_field = field
                 
+            # For court field, we need more results to properly normalize and deduplicate
+            agg_size = size * 3 if field == "court" else size
+            
             search_body = {
                 "size": 0,
                 "aggs": {
                     "field_values": {
                         "terms": {
                             "field": f"{agg_field}.keyword",
-                            "size": size
+                            "size": agg_size
                         }
                     }
                 }
@@ -484,7 +511,15 @@ class ElasticsearchHandler:
             for bucket in response.get("aggregations", {}).get("field_values", {}).get("buckets", []):
                 if bucket["key"] and bucket["key"] != "null" and bucket["key"] != "None":
                     values.append(bucket["key"])
-                    
+            
+            # For court field, normalize and deduplicate the values
+            if field == "court":
+                values = group_similar_court_names(values)
+                # Sort alphabetically for better UX
+                values.sort()
+                # Limit to the requested size after deduplication
+                values = values[:size]
+                
             return values
         except Exception as e:
             logger.error(f"Error getting metadata field values: {e}")
