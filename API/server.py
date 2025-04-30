@@ -4,7 +4,7 @@ FastAPI server for Motion-Index document search API.
 """
 import os
 from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import dotenv
 import uvicorn
@@ -16,6 +16,7 @@ from src.utils.constants import (
     ES_DEFAULT_PORT,
     ES_DEFAULT_INDEX
 )
+from src.core.document_processor import DocumentProcessor
 
 # Load environment variables
 dotenv.load_dotenv()
@@ -46,6 +47,18 @@ es_handler = ElasticsearchHandler(
     api_key=os.environ.get("ES_API_KEY"),
     cloud_id=os.environ.get("ES_CLOUD_ID"),
     use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true"
+)
+
+# Initialize DocumentProcessor
+document_processor = DocumentProcessor(
+    es_host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
+    es_port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
+    es_index=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
+    es_username=os.environ.get("ES_USERNAME"),
+    es_password=os.environ.get("ES_PASSWORD"),
+    es_api_key=os.environ.get("ES_API_KEY"),
+    es_cloud_id=os.environ.get("ES_CLOUD_ID"),
+    use_llm_classification=True
 )
 
 # Pydantic models for request/response
@@ -123,6 +136,13 @@ async def search_documents(search_request: SearchRequest):
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/categorise")
+async def categorise_documents(search_request: SearchRequest):
+    """
+    Categorise a document
+    """
+    
 
 @app.get("/document-types")
 async def get_document_types():
@@ -202,6 +222,30 @@ async def get_all_field_options():
             result[field] = options
             
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/upload-document")
+async def upload_document(file: UploadFile = File(...)):
+    """
+    Upload and process a single document.
+    """
+    try:
+        # Save the uploaded file temporarily
+        temp_file_path = f"/tmp/{file.filename}"
+        with open(temp_file_path, "wb") as temp_file:
+            temp_file.write(await file.read())
+
+        # Process the file using DocumentProcessor
+        document = document_processor.process_file(temp_file_path)
+
+        # Clean up the temporary file
+        os.remove(temp_file_path)
+
+        if document:
+            return {"message": "Document processed successfully", "document": document.dict()}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to process the document")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -18,7 +18,8 @@ services:
       - ES_INDEX=${ES_INDEX}
       - ES_API_KEY=${ES_API_KEY}
       - ES_USE_SSL=${ES_USE_SSL:-True}
-    command: python -m src.main /data
+    command: >
+      bash -c "python -m src.main /data && python server.py"
     networks:
       - motion-index-network
 
