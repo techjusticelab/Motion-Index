@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including LibreOffice with Java support
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpoppler-cpp-dev \
@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y \
     libtesseract-dev \
     libmagic1 \
     antiword \
+    libreoffice \
+    default-jre \
+    --no-install-recommends \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements file

@@ -30,10 +30,6 @@ from src.utils.constants import (
 # Configure logging
 logger = logging.getLogger("document_processor")
 
-
-
-
-
 class DocumentProcessor:
     """
     Main class for processing and indexing documents.
@@ -344,7 +340,7 @@ class DocumentProcessor:
                     '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
                     '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
                     '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-                    '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+                    '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx', '.wpd'
                 ]
                 
                 if ext not in textract_supported:
