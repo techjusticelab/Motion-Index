@@ -3,7 +3,7 @@
 FastAPI server for Motion-Index document search API.
 """
 import os
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from fastapi import FastAPI, Query, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 import dotenv
@@ -68,7 +68,7 @@ class SearchRequest(BaseModel):
     case_number: Optional[str] = None
     case_name: Optional[str] = None
     judge: Optional[str] = None
-    court: Optional[str] = None
+    court: Optional[Union[str, List[str]]] = None
     author: Optional[str] = None
     status: Optional[str] = None
     date_range: Optional[Dict[str, str]] = None

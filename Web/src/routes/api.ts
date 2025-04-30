@@ -9,7 +9,7 @@ export interface SearchParams {
   case_number?: string;
   case_name?: string;
   judge?: string;
-  court?: string;
+  court?: string | string[];
   author?: string;
   status?: string;
   date_range?: {
@@ -20,6 +20,7 @@ export interface SearchParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   page?: number;
+  use_fuzzy?: boolean;
 }
 
 export interface Document {

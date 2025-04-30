@@ -3,6 +3,12 @@
 	import { format } from 'date-fns';
 	import * as api from './api';
 
+	// Court filter state
+	let courtSearchInput = '';
+	let filteredCourtOptions: string[] = [];
+	let showCourtDropdown = false;
+	let courtDropdownRef: HTMLDivElement;
+
 	// Document popup state and functions
 	let activeDocument: { metadata: { document_name: any }; file_name: any; s3_uri: any } | null =
 		null;
@@ -28,7 +34,7 @@
 		case_number: '',
 		case_name: '',
 		judge: '',
-		court: '',
+		court: [] as string[],  // Changed to array for multi-select
 		author: '',
 		status: '',
 		date_range: {
@@ -38,7 +44,8 @@
 		size: 10,
 		sort_by: 'created_at',
 		sort_order: 'desc' as 'asc' | 'desc',
-		page: 1
+		page: 1,
+		use_fuzzy: false
 	};
 
 	let searchResults: api.SearchResponse = { total: 0, hits: [] };
@@ -142,7 +149,7 @@
 			case_number: '',
 			case_name: '',
 			judge: '',
-			court: '',
+			court: [] as string[],  // Changed to array for multi-select
 			author: '',
 			status: '',
 			date_range: {
@@ -152,7 +159,8 @@
 			size: 10,
 			sort_by: 'created_at',
 			sort_order: 'desc',
-			page: 1
+			page: 1,
+			use_fuzzy: false
 		};
 		performSearch();
 	}
@@ -165,6 +173,50 @@
 		} catch (err) {
 			return dateString;
 		}
+	}
+	
+	// Filter court options based on search input
+	function filterCourtOptions() {
+		if (!fieldOptions.court) return [];
+		
+		if (!courtSearchInput) {
+			filteredCourtOptions = [...fieldOptions.court];
+			return;
+		}
+		
+		const searchLower = courtSearchInput.toLowerCase();
+		filteredCourtOptions = fieldOptions.court.filter(court => 
+			court.toLowerCase().includes(searchLower)
+		);
+	}
+	
+	// Handle clicks outside the court dropdown
+	function handleClickOutside(event: MouseEvent) {
+		if (courtDropdownRef && !courtDropdownRef.contains(event.target as Node)) {
+			showCourtDropdown = false;
+		}
+	}
+	
+	// Add and remove event listeners for clicks outside the dropdown
+	onMount(() => {
+		document.addEventListener('click', handleClickOutside);
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
+	});
+	
+	// Add a court to the selected courts
+	function addCourt(court: string) {
+		if (!searchParams.court.includes(court)) {
+			searchParams.court = [...searchParams.court, court];
+		}
+		courtSearchInput = '';
+		filterCourtOptions();
+	}
+	
+	// Remove a court from the selected courts
+	function removeCourt(court: string) {
+		searchParams.court = searchParams.court.filter(c => c !== court);
 	}
 
 	// Toggle search help
@@ -447,21 +499,59 @@
 							</div>
 
 							<div>
-								<label for="court" class="mb-1 block text-xs font-medium text-gray-700">Court</label
-								>
-								<select
-									id="court"
-									bind:value={searchParams.court}
-									class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-								>
-									<option value="">All Courts</option>
-									{#if fieldOptions.court}
-										{#each fieldOptions.court as court}
-											<option value={court}>{court}</option>
-										{/each}
+								<label for="court-search" class="mb-1 block text-xs font-medium text-gray-700">Courts</label>
+									
+									<!-- Selected courts tags -->
+									{#if searchParams.court.length > 0}
+										<div class="mb-2 flex flex-wrap gap-2">
+											{#each searchParams.court as court}
+												<div class="flex items-center rounded-lg bg-blue-50 px-2 py-1 text-xs text-blue-700">
+													<span class="mr-1 max-w-[200px] truncate">{court}</span>
+													<button 
+														type="button" 
+														on:click={() => removeCourt(court)}
+														class="ml-1 text-blue-500 hover:text-blue-700"
+													>
+														<svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+															<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+														</svg>
+													</button>
+												</div>
+											{/each}
+										</div>
 									{/if}
-								</select>
-							</div>
+									
+									<!-- Court search input -->
+									<div class="relative" bind:this={courtDropdownRef}>
+										<input
+											type="text"
+											id="court-search"
+											bind:value={courtSearchInput}
+											on:input={filterCourtOptions}
+											on:focus={() => { showCourtDropdown = true; filterCourtOptions(); }}
+											placeholder="Search courts..."
+											class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+										/>
+										
+										<!-- Dropdown for court options -->
+										{#if showCourtDropdown && filteredCourtOptions.length > 0}
+											<div 
+												class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-sm shadow-lg ring-1 ring-black ring-opacity-5"
+											>
+												{#each filteredCourtOptions as court}
+													<button
+														type="button"
+														class="block w-full px-4 py-2 text-left hover:bg-gray-100 {searchParams.court.includes(court) ? 'bg-blue-50' : ''}"
+														on:click={() => { addCourt(court); showCourtDropdown = false; }}
+													>
+														{court}
+													</button>
+												{/each}
+											</div>
+										{/if}
+									</div>
+									<p class="mt-1 text-xs text-gray-500">Search and click to add multiple courts</p>
+								</div>
 
 							<!-- Date Range -->
 							<div>
@@ -705,10 +795,18 @@
 											</div>
 										{/if}
 
+										{#if document.metadata.court}
+											<div class="flex items-center">
+												<span class="text-gray-500">Court:</span>
+												<span class="ml-1 truncate font-medium text-gray-900">{document.metadata.court}</span
+												>
+											</div>
+										{/if}
+
 										<div class="flex items-center">
 											<span class="text-gray-500">Date:</span>
 											<span class="ml-1 font-medium text-gray-900"
-												>{formatDate(document.created_at)}</span
+												>{formatDate(document.metadata.timestamp || document.created_at)}</span
 											>
 										</div>
 									</div>

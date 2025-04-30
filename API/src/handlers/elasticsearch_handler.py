@@ -326,14 +326,63 @@ class ElasticsearchHandler:
                     if value is not None:
                         # Special handling for court field to handle normalized court names
                         if field == 'court':
-                            # Normalize the court name in the search query
-                            normalized_court = normalize_court_name(value)
-                            
-                            # Use a more flexible match for court names
-                            # This will match both the normalized and original court names
-                            filter_clauses.append({
-                                "match": {f"metadata.{field}": normalized_court}
-                            })
+                            # Handle multiple court selections
+                            if isinstance(value, list):
+                                # Create a should clause for multiple courts (OR condition)
+                                should_clauses = []
+                                for court_name in value:
+                                    # Normalize each court name
+                                    normalized_court = normalize_court_name(court_name)
+                                    
+                                    # Use a combination of term and match queries for more precise filtering
+                                    court_query = {
+                                        "bool": {
+                                            "should": [
+                                                # Exact match on the normalized court name
+                                                {"term": {f"metadata.{field}.keyword": normalized_court}},
+                                                # Exact match on the original court name
+                                                {"term": {f"metadata.{field}.keyword": court_name}},
+                                                # Fallback to match query with high minimum_should_match
+                                                {"match": {f"metadata.{field}": {
+                                                    "query": normalized_court,
+                                                    "operator": "and"
+                                                }}}
+                                            ],
+                                            "minimum_should_match": 1
+                                        }
+                                    }
+                                    should_clauses.append(court_query)
+                                
+                                # Add the should clause to the filter
+                                if should_clauses:
+                                    filter_clauses.append({
+                                        "bool": {
+                                            "should": should_clauses,
+                                            "minimum_should_match": 1
+                                        }
+                                    })
+                            else:
+                                # Single court selection - normalize and match
+                                normalized_court = normalize_court_name(value)
+                                
+                                # Use a combination of term and match queries for more precise filtering
+                                court_query = {
+                                    "bool": {
+                                        "should": [
+                                            # Exact match on the normalized court name
+                                            {"term": {f"metadata.{field}.keyword": normalized_court}},
+                                            # Exact match on the original court name
+                                            {"term": {f"metadata.{field}.keyword": value}},
+                                            # Fallback to match query with high minimum_should_match
+                                            {"match": {f"metadata.{field}": {
+                                                "query": normalized_court,
+                                                "operator": "and"
+                                            }}}
+                                        ],
+                                        "minimum_should_match": 1
+                                    }
+                                }
+                                filter_clauses.append(court_query)
                         # Handle different field types appropriately
                         elif isinstance(value, list):
                             # For list values, use terms query (OR condition)
@@ -349,9 +398,9 @@ class ElasticsearchHandler:
             # Date range filter
             if date_range:
                 date_filter = {"range": {"metadata.timestamp": {}}}
-                if "start" in date_range:
+                if "start" in date_range and date_range["start"]:
                     date_filter["range"]["metadata.timestamp"]["gte"] = date_range["start"]
-                if "end" in date_range:
+                if "end" in date_range and date_range["end"]:
                     date_filter["range"]["metadata.timestamp"]["lte"] = date_range["end"]
                 filter_clauses.append(date_filter)
             
@@ -368,10 +417,14 @@ class ElasticsearchHandler:
             
             # Add sorting if specified
             if sort_by:
-                # Use .keyword suffix for text fields when sorting
-                sort_field = sort_by
-                if sort_by not in ["created_at"] and not sort_by.endswith(".keyword"):
-                    sort_field = f"{sort_by}.keyword"
+                # Default to metadata.timestamp for date sorting instead of created_at
+                if sort_by == "created_at":
+                    sort_field = "metadata.timestamp"
+                else:
+                    # Use .keyword suffix for text fields when sorting
+                    sort_field = sort_by
+                    if not sort_by.endswith(".keyword"):
+                        sort_field = f"{sort_by}.keyword"
                 search_body["sort"] = [{sort_field: {"order": sort_order}}]
                 
             # Add highlighting for search results
