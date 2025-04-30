@@ -127,8 +127,14 @@ def classify_and_extract_by_llm(text: str, client: Any) -> Dict[str, Optional[An
             if llm_response_content.endswith("```"):
                 llm_response_content = llm_response_content[:-3]
             llm_response_content = llm_response_content.strip()
-
-            parsed_json = json.loads(llm_response_content)
+            
+            # Remove JavaScript-style comments before parsing
+            # First, remove single-line comments (// comment)
+            cleaned_json = re.sub(r'\s*//.*?$', '', llm_response_content, flags=re.MULTILINE)
+            # Then ensure the JSON is valid by removing any trailing commas
+            cleaned_json = re.sub(r',\s*([\]\}])', r'\1', cleaned_json)
+            
+            parsed_json = json.loads(cleaned_json)
             
             # Create final result with all expected fields
             final_result = {}
