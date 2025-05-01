@@ -21,11 +21,20 @@
 
 			if (err) throw err;
 
+			// Add a console log to confirm the login was successful
+			console.log('Login successful:', data);
+
+			// Make sure to wait for the invalidation to complete
 			await invalidateAll();
 
-			// Redirect to the page they were trying to access, or default to home
-			const redirectTo = $page.url.searchParams.get('redirectTo') || '/';
-			goto(redirectTo);
+			// Add a console log before redirect
+			console.log('Redirecting to:', $page.url.searchParams.get('redirectTo') || '/');
+
+			// Use a slight delay before redirecting
+			setTimeout(() => {
+				const redirectTo = $page.url.searchParams.get('redirectTo') || '/';
+				goto(redirectTo);
+			}, 100);
 		} catch (err: any) {
 			console.error('Login error:', err);
 			error = err.message || 'Failed to sign in';

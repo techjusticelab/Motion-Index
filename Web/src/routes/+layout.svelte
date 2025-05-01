@@ -1,15 +1,10 @@
 <script lang="ts">
-	export const load = async ({ locals: { getSession } }) => {
-		return {
-			session: await getSession()
-		};
-	};
-
-	let { children } = $props();
-	import { user, isLoading } from './lib/stores/auth';
 	import { page } from '$app/stores';
+	import { user, isLoading } from './lib/stores/auth';
 	import { onMount } from 'svelte';
 	import '../app.css';
+
+	let { children } = $props();
 
 	// Update the user store when session changes
 	$effect(() => {
@@ -18,13 +13,20 @@
 			isLoading.set(false);
 		}
 	});
+
+	// Handle authentication state
+	$effect(() => {
+		if ($page.data && !$page.data.session && !window.location.pathname.startsWith('/auth')) {
+			window.location.href = `/auth/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
+		}
+	});
 </script>
 
 <div class="min-h-screen bg-gray-50">
 	<header class="bg-indigo-600 shadow-md">
 		<div class="container mx-auto px-4 py-4">
 			<div class="flex flex-col items-center justify-between sm:flex-row">
-				<h1 class="text-2xl font-bold text-white">Motion Index</h1>
+				<a href="/" class="text-2xl font-bold text-white">Motion Index</a>
 				<nav class="mt-3 sm:mt-0">
 					<ul class="flex space-x-6 text-white">
 						<li><a href="/" class="transition hover:text-indigo-200">Search</a></li>

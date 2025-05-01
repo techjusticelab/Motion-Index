@@ -1,0 +1,9 @@
+API/data
+
+node_modules
+Web/node_modules
+Web/.svelte-kit
+
+API/data
+
+API/venv
