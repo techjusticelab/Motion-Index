@@ -10,6 +10,7 @@
 
 	// Update the user store when session changes
 	$effect(() => {
+		console.log('Page data:', $page.data.user);
 		if ($page.data) {
 			user.set($page.data.session?.user || null);
 			isLoading.set(false);
@@ -20,6 +21,7 @@
 	let isInitialLoad = true;
 
 	onMount(() => {
+		console.log('User session:', $page.data.user);
 		// Set initial load to false after the first render
 		setTimeout(() => {
 			isInitialLoad = false;
@@ -37,6 +39,7 @@
 					in:scale={{ start: 0.9, duration: 600, delay: 200, easing: elasticOut }}>Motion Index</a
 				>
 				<nav class="mt-3 sm:mt-0" in:fly={{ y: -10, duration: 500, delay: 300, easing: cubicOut }}>
+					<h1>{$page.data.session?.user}</h1>
 					<ul class="flex space-x-6 text-white">
 						{#each [{ href: '/', text: 'Search', isSpecial: false }, { href: '/upload', text: 'Upload', isSpecial: false }, { href: '/account', text: 'Account', isSpecial: false }, { href: '/help', text: 'Help', isSpecial: true }] as item, i}
 							<li

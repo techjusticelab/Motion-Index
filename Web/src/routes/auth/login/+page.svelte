@@ -6,16 +6,25 @@
 	import { fade, fly, slide, scale } from 'svelte/transition';
 	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
+	import { supabase } from '../../lib/db/supabase';
+	const { data } = await supabase.auth.getSession();
+	const session = data.session;
 
 	let email = '';
 	let password = '';
 	let loading = false;
 	let error: string | null = null;
 
+	// Import the auth store
+	import { user, isLoading } from '../../lib/stores/auth';
+
 	async function handleLogin() {
 		try {
 			loading = true;
 			error = null;
+
+			// Set global loading state
+			isLoading.set(true);
 
 			const { data, error: err } = await $page.data.supabase.auth.signInWithPassword({
 				email,
@@ -24,7 +33,14 @@
 
 			if (err) throw err;
 
-			// Add a console log to confirm the login was successfulSign in to Motion Index
+			// Extract the user data and update the store
+			if (data && data.user) {
+				// Set the user in the store
+				user.set(data.user);
+				console.log('User set in store:', data.user);
+			}
+
+			// Log successful login
 			console.log('Login successful:', data);
 
 			// Make sure to wait for the invalidation to complete
@@ -43,6 +59,7 @@
 			error = err.message || 'Failed to sign in';
 		} finally {
 			loading = false;
+			isLoading.set(false);
 		}
 	}
 </script>
