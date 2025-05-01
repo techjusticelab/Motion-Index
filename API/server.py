@@ -79,11 +79,12 @@ class SearchRequest(BaseModel):
     court: Optional[Union[str, List[str]]] = None
     author: Optional[str] = None
     status: Optional[str] = None
+    legal_tags: Optional[Union[str, List[str]]] = None
     date_range: Optional[Dict[str, str]] = None
     size: int = Field(default=10, ge=1, le=100)
     sort_by: Optional[str] = None
     sort_order: str = Field(default="desc", pattern="^(asc|desc)$")
-    page: int = Field(default=1, ge=1)
+    page: int = Field(default=1)
     use_fuzzy: bool = Field(default=False, description="Whether to use fuzzy matching for search queries")
 
 class MetadataFieldRequest(BaseModel):
@@ -131,6 +132,9 @@ async def search_documents(search_request: SearchRequest):
             metadata_filters["author"] = search_request.author
         if search_request.status:
             metadata_filters["status"] = search_request.status
+        if search_request.legal_tags:
+            metadata_filters["legal_tags"] = search_request.legal_tags
+        
             
         # Execute search
         results = es_handler.search_documents(
