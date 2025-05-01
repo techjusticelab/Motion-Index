@@ -3,18 +3,12 @@
 	import { user, isLoading } from './lib/stores/auth';
 	import { onMount } from 'svelte';
 	import { fade, fly, slide, scale } from 'svelte/transition';
+	import { invalidate } from '$app/navigation';
 	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
 	import '../app.css';
 
-	let { children } = $props();
-
-	// Update the user store when session changes
-	$effect(() => {
-		if ($page.data) {
-			user.set($page.data.session?.user || null);
-			isLoading.set(false);
-		}
-	});
+	let { data, children } = $props();
+	let { session, supabase } = $derived(data);
 
 	// Flag to control animations after initial page load
 	let isInitialLoad = true;
@@ -25,7 +19,19 @@
 			isInitialLoad = false;
 		}, 100);
 	});
+
+	onMount(() => {
+		const { data } = supabase.auth.onAuthStateChange((_, newSession) => {
+			if (newSession?.expires_at !== session?.expires_at) {
+				invalidate('supabase:auth');
+			}
+		});
+
+		return () => data.subscription.unsubscribe();
+	});
 </script>
+
+{@render children()}
 
 <div class="min-h-screen bg-gray-50" in:fade={{ duration: 300, easing: cubicOut }}>
 	<header class="bg-indigo-600 shadow-md" in:fly={{ y: -20, duration: 700, easing: cubicOut }}>

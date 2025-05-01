@@ -1,25 +1,21 @@
-import { SupabaseClient, Session } from '@supabase/supabase-js';
+import type { Session, SupabaseClient, User } from '@supabase/supabase-js'
+import type { Database } from './database.types.ts' // import generated types
 
 declare global {
 	namespace App {
+		// interface Error {}
 		interface Locals {
-			supabase: SupabaseClient;
-			getSession(): Promise<Session | null>;
+			supabase: SupabaseClient<Database>
+			safeGetSession: () => Promise<{ session: Session | null; user: User | null }>
+			session: Session | null
+			user: User | null
 		}
 		interface PageData {
-			session: Session | null;
-			supabase: SupabaseClient;
+			session: Session | null
 		}
-		// interface Error {}
+		// interface PageState {}
 		// interface Platform {}
-	}
-
-	// Add environment variable typing
-	interface ImportMetaEnv {
-		VITE_SUPABASE_URL: string;
-		VITE_SUPABASE_ANON_KEY: string;
-		// Add any other environment variables you need
 	}
 }
 
-export { };
+export { }

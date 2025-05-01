@@ -73,7 +73,8 @@
 		>
 			<form
 				class="space-y-6"
-				on:submit|preventDefault={handleLogin}
+				method="POST"
+				action="/auth/login"
 				in:fade={{ duration: 500, delay: 500 }}
 			>
 				{#if error}

@@ -1,14 +1,9 @@
-import { redirect } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
+import type { LayoutServerLoad } from './$types'
 
-export const load = async ({ locals, url }: { locals: { getSession: () => Promise<any> }, url: URL }) => {
-    const { getSession } = locals;
-    const session = await getSession();
-
-    // Redirect to login if not authenticated and not on auth pages
-
-
+export const load: LayoutServerLoad = async({ locals: { safeGetSession }: { safeGetSession: () => Promise<{ session: any }> }, cookies }) => {
+    const { session } = await safeGetSession()
     return {
-        session
-    };
-};
+        session,
+        cookies: cookies.getAll(),
+    }
+}
