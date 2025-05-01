@@ -1,0 +1,26 @@
+services:
+  app:
+    build: .
+    volumes:
+      - ./:/app
+      - ./data:/data
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      # Elastic Cloud settings
+      - ES_HOST=${ES_HOST}
+      - ES_PORT=${ES_PORT}
+      - ES_INDEX=${ES_INDEX}
+      - ES_API_KEY=${ES_API_KEY}
+      - ES_USE_SSL=${ES_USE_SSL:-True}
+    command: >
+      bash -c "python server.py"
+    networks:
+      - motion-index-network
+
+networks:
+  motion-index-network:
+    driver: bridge
