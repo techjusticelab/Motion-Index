@@ -13,6 +13,7 @@ export interface SearchParams {
         end: string;
     };
     legal_tags: string[];
+    legal_tags_match_all: boolean; // Whether to match all tags (AND) or any tag (OR)
     size: number;
     sort_by: string;
     sort_order: 'asc' | 'desc';

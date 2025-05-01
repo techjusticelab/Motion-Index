@@ -79,6 +79,11 @@
 		const judge = event.detail;
 		searchParams.judge = searchParams.judge.filter((j) => j !== judge);
 	}
+
+	// Handle tag matching behavior toggle
+	function handleTagMatchToggle(event: CustomEvent<boolean>) {
+		searchParams.legal_tags_match_all = event.detail;
+	}
 </script>
 
 <div
@@ -193,19 +198,14 @@
 			</div>
 
 			<div in:fly={{ y: 10, duration: 500, delay: 350, easing: cubicOut }}>
-				<label for="legal_tags" class="mb-1 block text-xs font-medium text-gray-700">Tags</label>
-				<select
-					id="legal_tags"
-					bind:value={searchParams.legal_tags}
-					class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
-				>
-					<option value="">All Legal Tags</option>
-					{#if fieldOptions.legal_tags}
-						{#each fieldOptions.legal_tags as tag}
-							<option value={tag}>{tag}</option>
-						{/each}
-					{/if}
-				</select>
+				<LegalFilter
+					selectedTags={searchParams.legal_tags}
+					allTagsOptions={fieldOptions.legal_tags || []}
+					matchAll={searchParams.legal_tags_match_all}
+					on:add={handleAddTag}
+					on:remove={handleRemoveTag}
+					on:matchAllToggle={handleTagMatchToggle}
+				/>
 			</div>
 
 			<div in:fly={{ y: 10, duration: 500, delay: 400, easing: cubicOut }}>
@@ -288,14 +288,7 @@
 					/>
 				</div>
 
-				<div in:fly={{ y: 10, duration: 500, delay: 250, easing: cubicOut }}>
-					<LegalFilter
-						selectedTags={searchParams.legal_tags}
-						allTagsOptions={fieldOptions.legal_tags || []}
-						on:add={handleAddTag}
-						on:remove={handleRemoveTag}
-					/>
-				</div>
+
 
 				<!-- Date Range -->
 				<div in:fly={{ y: 10, duration: 500, delay: 300, easing: cubicOut }}>

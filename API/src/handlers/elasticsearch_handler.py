@@ -318,7 +318,8 @@ class ElasticsearchHandler:
                         from_value: int = 0,
                         sort_by: Optional[str] = None,
                         sort_order: str = "desc",
-                        use_fuzzy: bool = False) -> Dict[str, Any]:
+                        use_fuzzy: bool = False,
+                        legal_tags_match_all: bool = False) -> Dict[str, Any]:
         """
         Search for documents with advanced filtering options.
         
@@ -334,6 +335,7 @@ class ElasticsearchHandler:
             sort_by: Field to sort results by (e.g., "created_at", "metadata.timestamp")
             sort_order: Sort order ("asc" or "desc")
             use_fuzzy: Whether to use fuzzy matching for the query (default: False)
+            legal_tags_match_all: Whether to match all tags (AND logic) or any tag (OR logic) when filtering by legal_tags
         
         Returns:
             Dictionary containing search results and metadata
@@ -429,15 +431,56 @@ class ElasticsearchHandler:
                         # IMPORTANT: Special handling for legal_tags field
                         if field == 'legal_tags':
                             # Print debug information
-                            print(f"Applying legal_tags filter: {value}")
+                            print(f"Applying legal_tags filter: {value}, match_all: {legal_tags_match_all}")
                             
-                            if isinstance(value, list):
-                                if len(value) > 0:
-                                    # Create a terms query for multiple tags (OR condition)
+                            if isinstance(value, list) and len(value) > 0:
+                                if legal_tags_match_all:
+                                    # AND logic - all tags must match
+                                    for tag in value:
+                                        filter_clauses.append({
+                                            "term": {"metadata.legal_tags.keyword": tag}
+                                        })
+                                else:
+                                    # OR logic - any tag can match
                                     filter_clauses.append({
                                         "terms": {"metadata.legal_tags.keyword": value}
                                     })
-                            else:
+                                    
+                                    # When using OR logic, add a function score to sort by number of matching tags
+                                    # This will prioritize documents with more matching tags
+                                    if not sort_by:  # Only apply if no explicit sort is requested
+                                        function_score = {
+                                            "function_score": {
+                                                "query": {"match_all": {}},
+                                                "functions": [
+                                                    {
+                                                        "script_score": {
+                                                            "script": {
+                                                                "source": """
+                                                                    def tags = params.tags;
+                                                                    def doc_tags = doc['metadata.legal_tags.keyword'];
+                                                                    int matches = 0;
+                                                                    if (!doc_tags.empty) {
+                                                                        for (tag in tags) {
+                                                                            if (doc_tags.contains(tag)) {
+                                                                                matches++;
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                    return matches;
+                                                                """,
+                                                                "params": {
+                                                                    "tags": value
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                ],
+                                                "boost_mode": "replace"
+                                            }
+                                        }
+                                        must_clauses.append(function_score)
+                            elif isinstance(value, str) and value:
                                 # Create a term query for a single tag
                                 filter_clauses.append({
                                     "term": {"metadata.legal_tags.keyword": value}
