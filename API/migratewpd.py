@@ -6,6 +6,11 @@ import shutil
 import zipfile
 import gzip
 import re
+import threading
+import queue
+import concurrent.futures
+from tqdm import tqdm  # For progress bars
+import multiprocessing
 
 # ANSI color codes for colorful terminal output
 class Colors:
@@ -19,9 +24,32 @@ class Colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+# Global variables for counting
+stats = {
+    'junk_files_deleted': 0,
+    'archives_extracted': 0,
+    'archives_failed': 0,
+    'files_kept': 0,
+    'files_converted': 0,
+    'files_deleted': 0,
+    'files_failed': 0,
+    'unknown_converted': 0,
+    'empty_dirs_removed': 0
+}
+
+# Thread-safe printing
+print_lock = threading.Lock()
+
+# Configure for high performance on your system
+CPU_COUNT = 28  # Your i9-9940X has 28 threads
+MAX_WORKERS = 56  # Use 2x CPU cores for I/O bound tasks
+BATCH_SIZE = 5000  # Process files in larger batches
+IO_WORKERS = 16  # Dedicated threads for I/O operations
+
 def colored_print(text, color):
     """Print text with color"""
-    print(f"{color}{text}{Colors.ENDC}")
+    with print_lock:
+        print(f"{color}{text}{Colors.ENDC}")
 
 def check_command_exists(command):
     """Check if a command exists on the system"""
@@ -79,7 +107,6 @@ def extract_zip(zip_path, extract_dir):
                 except Exception as e:
                     colored_print(f"Error extracting {file} from ZIP: {str(e)}", Colors.RED)
                     
-        colored_print(f"Extracted ZIP file: {zip_path}", Colors.GREEN)
         return True
     except Exception as e:
         colored_print(f"Error extracting ZIP file {zip_path}: {str(e)}", Colors.RED)
@@ -99,7 +126,6 @@ def extract_gzip(gz_path, extract_dir):
         with gzip.open(gz_path, 'rb') as f_in:
             with open(output_path, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
-        colored_print(f"Extracted GZIP file: {gz_path}", Colors.GREEN)
         return True
     except Exception as e:
         colored_print(f"Error extracting GZIP file {gz_path}: {str(e)}", Colors.RED)
@@ -166,19 +192,50 @@ def convert_html_to_pdf_alternative(html_file, pdf_file):
 def convert_to_pdf_via_libreoffice(input_file, output_dir):
     """Try to convert file to PDF using LibreOffice"""
     try:
+        # Create a unique identifier for each conversion to avoid conflicts
+        unique_id = str(time.time()) + "_" + str(hash(input_file) % 10000)
+        temp_dir = os.path.join("/tmp", f"libreoffice_convert_{unique_id}")
+        os.makedirs(temp_dir, exist_ok=True)
+        
         cmd = [
             "libreoffice",
             "--headless",
             "--convert-to", "pdf",
-            "--outdir", output_dir,
+            "--outdir", temp_dir,
             str(input_file)
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        output_pdf = os.path.join(output_dir, os.path.basename(input_file).rsplit('.', 1)[0] + ".pdf")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         
-        return result.returncode == 0 and os.path.exists(output_pdf)
+        # Find the generated PDF in the temp directory
+        pdf_name = os.path.basename(input_file).rsplit('.', 1)[0] + ".pdf"
+        temp_pdf = os.path.join(temp_dir, pdf_name)
+        output_pdf = os.path.join(output_dir, pdf_name)
+        
+        # Move the PDF to the output directory if it exists
+        if os.path.exists(temp_pdf):
+            shutil.move(temp_pdf, output_pdf)
+            # Clean up temp dir
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
+            return True
+        
+        # Clean up temp dir
+        try:
+            shutil.rmtree(temp_dir)
+        except:
+            pass
+            
+        return False
     except Exception:
+        # Clean up temp dir in case of error
+        try:
+            if 'temp_dir' in locals() and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except:
+            pass
         return False
 
 def is_junk_file(file_path):
@@ -224,9 +281,225 @@ def safe_makedirs(directory):
         colored_print(f"Error creating directory {directory}: {str(e)}", Colors.RED)
         return False
 
+def process_junk_file(file_path):
+    """Process and delete a junk file"""
+    try:
+        os.remove(file_path)
+        with stats_lock:
+            stats['junk_files_deleted'] += 1
+        return True
+    except Exception as e:
+        colored_print(f"Error deleting junk file {file_path}: {str(e)}", Colors.RED)
+        return False
+
+def process_archive(file_path):
+    """Process and extract an archive file"""
+    file_ext = os.path.splitext(file_path)[1].lower()
+    extract_dir = os.path.join(os.path.dirname(file_path), os.path.splitext(os.path.basename(file_path))[0])
+    
+    # Skip if the directory can't be created
+    if not safe_makedirs(extract_dir):
+        with stats_lock:
+            stats['archives_failed'] += 1
+        return False
+    
+    # Extract based on file type
+    success = False
+    if file_ext == '.zip':
+        success = extract_zip(file_path, extract_dir)
+    elif file_ext == '.gz':
+        success = extract_gzip(file_path, extract_dir)
+    # Add additional archive formats here
+    
+    if success:
+        with stats_lock:
+            stats['archives_extracted'] += 1
+        # Delete the archive after extraction
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            colored_print(f"Error deleting archive {file_path}: {str(e)}", Colors.RED)
+    else:
+        with stats_lock:
+            stats['archives_failed'] += 1
+    
+    return success
+
+def process_file(file_path, textract_supported, document_extensions, presentation_extensions, spreadsheet_extensions):
+    """Process a single file for conversion"""
+    try:
+        filename = os.path.basename(file_path)
+        file_ext = os.path.splitext(filename)[1].lower()
+        parent_dir = os.path.dirname(file_path)
+        
+        # Skip files that already have a PDF version
+        pdf_version = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".pdf")
+        if os.path.exists(pdf_version):
+            with stats_lock:
+                stats['files_kept'] += 1
+            return "kept"
+            
+        # Check if it's a junk file
+        if is_junk_file(file_path):
+            try:
+                os.remove(file_path)
+                with stats_lock:
+                    stats['files_deleted'] += 1
+                return "deleted"
+            except Exception:
+                pass
+            
+        # Handle files based on type
+        if file_ext.lower() in textract_supported:
+            # Keep textract-supported files
+            with stats_lock:
+                stats['files_kept'] += 1
+            return "kept"
+            
+        elif file_ext.lower() in document_extensions + presentation_extensions + spreadsheet_extensions:
+            # Try to convert to PDF using LibreOffice
+            if convert_to_pdf_via_libreoffice(file_path, parent_dir):
+                with stats_lock:
+                    stats['files_converted'] += 1
+                os.remove(file_path)
+                return "converted"
+            else:
+                # If LibreOffice fails, try alternative methods
+                
+                # For wpd files, try specialized converters
+                if file_ext.lower() in ['.wpd', '.wp', '.wp5']:
+                    # Try wpd2text
+                    if check_command_exists("wpd2text"):
+                        temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
+                        try:
+                            with open(temp_txt, 'w') as f:
+                                subprocess.run(["wpd2text", file_path], stdout=f, check=True)
+                            
+                            # Convert text to PDF
+                            if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
+                                with stats_lock:
+                                    stats['files_converted'] += 1
+                                os.remove(file_path)
+                                if os.path.exists(temp_txt):
+                                    os.remove(temp_txt)
+                                return "converted"
+                        except Exception:
+                            if os.path.exists(temp_txt):
+                                os.remove(temp_txt)
+                
+                # For HTML files, use LibreOffice as alternative to wkhtmltopdf
+                if file_ext.lower() in ['.htm', '.html']:
+                    if convert_html_to_pdf_alternative(file_path, pdf_version):
+                        with stats_lock:
+                            stats['files_converted'] += 1
+                        os.remove(file_path)
+                        return "converted"
+                
+                # Fallback for all files: convert to text then PDF
+                temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
+                if convert_to_txt(file_path, temp_txt):
+                    if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
+                        with stats_lock:
+                            stats['files_converted'] += 1
+                        os.remove(file_path)
+                        if os.path.exists(temp_txt):
+                            os.remove(temp_txt)
+                        return "converted"
+                    if os.path.exists(temp_txt):
+                        os.remove(temp_txt)
+                
+                with stats_lock:
+                    stats['files_failed'] += 1
+                return "failed"
+                
+        elif file_ext == '':
+            # No extension - try to determine file type
+            file_type = get_file_type(file_path)
+            
+            # Try to convert based on file type
+            if "text" in file_type.lower():
+                # It's text, convert to PDF
+                if convert_text_to_pdf(Path(file_path), Path(pdf_version)):
+                    with stats_lock:
+                        stats['files_converted'] += 1
+                    os.remove(file_path)
+                    return "converted"
+            elif "word" in file_type.lower() or "document" in file_type.lower():
+                # Try LibreOffice
+                if convert_to_pdf_via_libreoffice(file_path, parent_dir):
+                    with stats_lock:
+                        stats['files_converted'] += 1
+                    os.remove(file_path)
+                    return "converted"
+            
+            # Fallback: convert to text
+            temp_txt = os.path.join(parent_dir, filename + ".txt")
+            if convert_to_txt(file_path, temp_txt):
+                if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
+                    with stats_lock:
+                        stats['unknown_converted'] += 1
+                    os.remove(file_path)
+                    if os.path.exists(temp_txt):
+                        os.remove(temp_txt)
+                    return "converted"
+                if os.path.exists(temp_txt):
+                    os.remove(temp_txt)
+            
+            with stats_lock:
+                stats['files_failed'] += 1
+            return "failed"
+            
+        else:
+            # Unknown extension - try to convert to text
+            temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
+            if convert_to_txt(file_path, temp_txt):
+                if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
+                    with stats_lock:
+                        stats['unknown_converted'] += 1
+                    os.remove(file_path)
+                    if os.path.exists(temp_txt):
+                        os.remove(temp_txt)
+                    return "converted"
+                if os.path.exists(temp_txt):
+                    os.remove(temp_txt)
+            
+            with stats_lock:
+                stats['files_failed'] += 1
+            return "failed"
+            
+    except Exception as e:
+        with stats_lock:
+            stats['files_failed'] += 1
+        colored_print(f"Error processing {file_path}: {str(e)}", Colors.RED)
+        return "failed"
+
+def process_empty_dir(dir_path):
+    """Process and remove an empty directory"""
+    try:
+        # Check if the directory is empty
+        if not os.listdir(dir_path):
+            os.rmdir(dir_path)
+            with stats_lock:
+                stats['empty_dirs_removed'] += 1
+            return True
+    except Exception as e:
+        colored_print(f"Error removing empty directory {dir_path}: {str(e)}", Colors.RED)
+    return False
+
+def process_file_batch(batch, textract_supported, document_extensions, presentation_extensions, spreadsheet_extensions):
+    """Process a batch of files"""
+    results = []
+    for file_path in batch:
+        result = process_file(file_path, textract_supported, document_extensions, presentation_extensions, spreadsheet_extensions)
+        results.append(result)
+    return results
+
+# Lock for updating stats
+stats_lock = threading.Lock()
+
 def process_all_files():
     """
-    Process all files in the data directory:
+    Process all files in the data directory using multiple threads:
     1. Extract archives (zip, gz)
     2. Convert files to PDF using appropriate methods
     3. Delete junk files
@@ -258,8 +531,7 @@ def process_all_files():
     # First pass: Delete all macOS metadata and junk files
     colored_print("\n🧹 PHASE 1: CLEANING UP JUNK FILES...", Colors.HEADER)
     
-    junk_files_deleted = 0
-    
+    junk_files = []
     for root, dirs, files in os.walk(root_directory):
         # Skip processing the __MACOSX directories
         dirs[:] = [d for d in dirs if d != "__MACOSX"]
@@ -267,21 +539,20 @@ def process_all_files():
         for file in files:
             file_path = os.path.join(root, file)
             if is_junk_file(file_path):
-                try:
-                    os.remove(file_path)
-                    junk_files_deleted += 1
-                    colored_print(f"Deleted junk file: {file_path}", Colors.YELLOW)
-                except Exception as e:
-                    colored_print(f"Error deleting junk file {file_path}: {str(e)}", Colors.RED)
+                junk_files.append(file_path)
     
-    colored_print(f"Junk files deleted: {junk_files_deleted}", Colors.CYAN)
+    # Process junk files in parallel
+    colored_print(f"Found {len(junk_files)} junk files to delete", Colors.CYAN)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Use tqdm for progress bar
+        list(tqdm(executor.map(process_junk_file, junk_files), total=len(junk_files), desc="Deleting junk files"))
+    
+    colored_print(f"Junk files deleted: {stats['junk_files_deleted']}", Colors.CYAN)
     
     # Second pass: Extract all archives
     colored_print("\n📦 PHASE 2: EXTRACTING ARCHIVES...", Colors.HEADER)
     
-    archives_extracted = 0
-    archives_failed = 0
-    
+    archives = []
     for root, dirs, files in os.walk(root_directory):
         # Skip processing the __MACOSX directories
         dirs[:] = [d for d in dirs if d != "__MACOSX"]
@@ -295,45 +566,18 @@ def process_all_files():
                 continue
                 
             if file_ext in archive_extensions:
-                colored_print(f"Found archive: {file_path}", Colors.CYAN)
-                
-                # Create extraction directory (named after the archive without extension)
-                extract_dir = os.path.join(root, os.path.splitext(file)[0])
-                
-                # Skip if the directory can't be created
-                if not safe_makedirs(extract_dir):
-                    archives_failed += 1
-                    continue
-                
-                # Extract based on file type
-                success = False
-                if file_ext == '.zip':
-                    success = extract_zip(file_path, extract_dir)
-                elif file_ext == '.gz':
-                    success = extract_gzip(file_path, extract_dir)
-                # Add additional archive formats here
-                
-                if success:
-                    archives_extracted += 1
-                    # Delete the archive after extraction
-                    try:
-                        os.remove(file_path)
-                        colored_print(f"Deleted archive after extraction: {file_path}", Colors.BLUE)
-                    except Exception as e:
-                        colored_print(f"Error deleting archive {file_path}: {str(e)}", Colors.RED)
-                else:
-                    archives_failed += 1
+                archives.append(file_path)
     
-    colored_print(f"Archives extracted: {archives_extracted}, Failed: {archives_failed}", Colors.CYAN)
+    # Process archives in parallel with a moderate thread count
+    colored_print(f"Found {len(archives)} archives to extract", Colors.CYAN)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=IO_WORKERS) as executor:
+        # Use tqdm for progress bar
+        list(tqdm(executor.map(process_archive, archives), total=len(archives), desc="Extracting archives"))
+    
+    colored_print(f"Archives extracted: {stats['archives_extracted']}, Failed: {stats['archives_failed']}", Colors.CYAN)
     
     # Third pass: Process all files
     colored_print("\n🔄 PHASE 3: CONVERTING FILES...", Colors.HEADER)
-    
-    files_kept = 0
-    files_converted = 0
-    files_deleted = 0
-    files_failed = 0
-    unknown_converted = 0
     
     # Get all files after extraction
     all_files = []
@@ -350,180 +594,75 @@ def process_all_files():
     total_files = len(all_files)
     colored_print(f"Total files to process: {total_files}", Colors.CYAN)
     
-    for i, file_path in enumerate(all_files):
-        try:
-            progress = f"[{i+1}/{total_files}]"
-            filename = os.path.basename(file_path)
-            file_ext = os.path.splitext(filename)[1].lower()
-            parent_dir = os.path.dirname(file_path)
+    # Process files in batches to improve performance and reduce memory usage
+    batch_count = (total_files + BATCH_SIZE - 1) // BATCH_SIZE  # Ceiling division
+    batches = [all_files[i * BATCH_SIZE:(i + 1) * BATCH_SIZE] for i in range(batch_count)]
+    
+    with tqdm(total=total_files, desc="Converting files") as pbar:
+        for batch in batches:
+            # Split the batch into smaller chunks for parallel processing
+            chunk_size = max(1, len(batch) // CPU_COUNT)
+            chunks = [batch[i:i + chunk_size] for i in range(0, len(batch), chunk_size)]
             
-            # Skip files that already have a PDF version
-            pdf_version = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".pdf")
-            if os.path.exists(pdf_version):
-                colored_print(f"{progress} Skipping {filename} - PDF version exists", Colors.BLUE)
-                files_kept += 1
-                continue
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                futures = [
+                    executor.submit(
+                        process_file_batch, 
+                        chunk, 
+                        textract_supported, 
+                        document_extensions, 
+                        presentation_extensions, 
+                        spreadsheet_extensions
+                    ) for chunk in chunks
+                ]
                 
-            # Check if it's a junk file (again to catch any new files from extraction)
-            if is_junk_file(file_path):
-                colored_print(f"{progress} Deleting junk file: {filename}", Colors.YELLOW)
-                os.remove(file_path)
-                files_deleted += 1
-                continue
-                
-            # Handle files based on type
-            if file_ext.lower() in textract_supported:
-                # Keep textract-supported files
-                colored_print(f"{progress} Keeping textract-supported file: {filename}", Colors.BLUE)
-                files_kept += 1
-                
-            elif file_ext.lower() in document_extensions + presentation_extensions + spreadsheet_extensions:
-                # Try to convert to PDF using LibreOffice
-                colored_print(f"{progress} Converting to PDF: {filename}", Colors.CYAN)
-                if convert_to_pdf_via_libreoffice(file_path, parent_dir):
-                    files_converted += 1
-                    colored_print(f"{progress} ✅ Successfully converted: {filename}", Colors.GREEN)
-                    os.remove(file_path)
-                    colored_print(f"{progress} 🗑️ Deleted original: {filename}", Colors.BLUE)
-                else:
-                    # If LibreOffice fails, try alternative methods
-                    colored_print(f"{progress} LibreOffice conversion failed, trying alternatives...", Colors.YELLOW)
-                    
-                    # For wpd files, try specialized converters
-                    if file_ext.lower() in ['.wpd', '.wp', '.wp5']:
-                        # Try wpd2text
-                        if check_command_exists("wpd2text"):
-                            temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
-                            try:
-                                with open(temp_txt, 'w') as f:
-                                    subprocess.run(["wpd2text", file_path], stdout=f, check=True)
-                                
-                                # Convert text to PDF
-                                if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
-                                    files_converted += 1
-                                    colored_print(f"{progress} ✅ Successfully converted via wpd2text: {filename}", Colors.GREEN)
-                                    os.remove(file_path)
-                                    if os.path.exists(temp_txt):
-                                        os.remove(temp_txt)
-                                    continue
-                            except Exception:
-                                if os.path.exists(temp_txt):
-                                    os.remove(temp_txt)
-                    
-                    # For HTML files, use LibreOffice as alternative to wkhtmltopdf
-                    if file_ext.lower() in ['.htm', '.html']:
-                        if convert_html_to_pdf_alternative(file_path, pdf_version):
-                            files_converted += 1
-                            colored_print(f"{progress} ✅ Successfully converted HTML: {filename}", Colors.GREEN)
-                            os.remove(file_path)
-                            continue
-                    
-                    # Fallback for all files: convert to text then PDF
-                    temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
-                    if convert_to_txt(file_path, temp_txt):
-                        if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
-                            files_converted += 1
-                            colored_print(f"{progress} ✅ Successfully converted via text: {filename}", Colors.GREEN)
-                            os.remove(file_path)
-                            if os.path.exists(temp_txt):
-                                os.remove(temp_txt)
-                            continue
-                        if os.path.exists(temp_txt):
-                            os.remove(temp_txt)
-                    
-                    files_failed += 1
-                    colored_print(f"{progress} ❌ Failed to convert: {filename}", Colors.RED)
-                    
-            elif file_ext == '':
-                # No extension - try to determine file type
-                colored_print(f"{progress} Processing file with no extension: {filename}", Colors.YELLOW)
-                file_type = get_file_type(file_path)
-                
-                # Try to convert based on file type
-                if "text" in file_type.lower():
-                    # It's text, convert to PDF
-                    if convert_text_to_pdf(Path(file_path), Path(pdf_version)):
-                        files_converted += 1
-                        colored_print(f"{progress} ✅ Successfully converted text file: {filename}", Colors.GREEN)
-                        os.remove(file_path)
-                        continue
-                elif "word" in file_type.lower() or "document" in file_type.lower():
-                    # Try LibreOffice
-                    if convert_to_pdf_via_libreoffice(file_path, parent_dir):
-                        files_converted += 1
-                        colored_print(f"{progress} ✅ Successfully converted document: {filename}", Colors.GREEN)
-                        os.remove(file_path)
-                        continue
-                
-                # Fallback: convert to text
-                colored_print(f"{progress} Converting unknown file to text: {filename}", Colors.YELLOW)
-                temp_txt = os.path.join(parent_dir, filename + ".txt")
-                if convert_to_txt(file_path, temp_txt):
-                    if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
-                        unknown_converted += 1
-                        colored_print(f"{progress} ✅ Successfully converted unknown file: {filename}", Colors.GREEN)
-                        os.remove(file_path)
-                        if os.path.exists(temp_txt):
-                            os.remove(temp_txt)
-                        continue
-                    if os.path.exists(temp_txt):
-                        os.remove(temp_txt)
-                
-                files_failed += 1
-                colored_print(f"{progress} ❌ Could not process file: {filename}", Colors.RED)
-                
-            else:
-                # Unknown extension - try to convert to text
-                colored_print(f"{progress} Converting unknown format to text: {filename}", Colors.YELLOW)
-                temp_txt = os.path.join(parent_dir, os.path.splitext(filename)[0] + ".txt")
-                if convert_to_txt(file_path, temp_txt):
-                    if convert_text_to_pdf(Path(temp_txt), Path(pdf_version)):
-                        unknown_converted += 1
-                        colored_print(f"{progress} ✅ Successfully converted to PDF via text: {filename}", Colors.GREEN)
-                        os.remove(file_path)
-                        if os.path.exists(temp_txt):
-                            os.remove(temp_txt)
-                        continue
-                    if os.path.exists(temp_txt):
-                        os.remove(temp_txt)
-                
-                files_failed += 1
-                colored_print(f"{progress} ❌ Failed to convert unknown format: {filename}", Colors.RED)
-                
-        except Exception as e:
-            files_failed += 1
-            colored_print(f"Error processing {file_path}: {str(e)}", Colors.RED)
+                for future in concurrent.futures.as_completed(futures):
+                    # Each result is a list of results from a batch
+                    results = future.result()
+                    pbar.update(len(results))
     
     # Fourth pass: Clean up empty directories
     colored_print("\n🧹 PHASE 4: CLEANING UP EMPTY DIRECTORIES...", Colors.HEADER)
     
-    empty_dirs_removed = 0
+    empty_dirs = []
     for root, dirs, files in os.walk(root_directory, topdown=False):
         for dir_name in dirs:
             dir_path = os.path.join(root, dir_name)
             try:
                 # Check if the directory is empty
                 if not os.listdir(dir_path):
-                    os.rmdir(dir_path)
-                    empty_dirs_removed += 1
-                    colored_print(f"Removed empty directory: {dir_path}", Colors.YELLOW)
-            except Exception as e:
-                colored_print(f"Error removing empty directory {dir_path}: {str(e)}", Colors.RED)
+                    empty_dirs.append(dir_path)
+            except Exception:
+                pass
+    
+    # Process empty directories in parallel
+    colored_print(f"Found {len(empty_dirs)} empty directories to remove", Colors.CYAN)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        # Use tqdm for progress bar
+        list(tqdm(executor.map(process_empty_dir, empty_dirs), total=len(empty_dirs), desc="Removing empty directories"))
     
     # Print summary
     colored_print("\n📊 PROCESSING SUMMARY", Colors.HEADER + Colors.BOLD)
     colored_print(f"Total files processed: {total_files}", Colors.CYAN)
-    colored_print(f"✅ Files kept (textract supported): {files_kept}", Colors.BLUE)
-    colored_print(f"✅ Files converted to PDF: {files_converted}", Colors.GREEN)
-    colored_print(f"✅ Unknown files converted: {unknown_converted}", Colors.GREEN)
-    colored_print(f"🗑️ Junk files deleted: {junk_files_deleted + files_deleted}", Colors.YELLOW)
-    colored_print(f"❌ Files that couldn't be processed: {files_failed}", Colors.RED)
-    colored_print(f"🧹 Empty directories removed: {empty_dirs_removed}", Colors.YELLOW)
+    colored_print(f"✅ Files kept (textract supported): {stats['files_kept']}", Colors.BLUE)
+    colored_print(f"✅ Files converted to PDF: {stats['files_converted']}", Colors.GREEN)
+    colored_print(f"✅ Unknown files converted: {stats['unknown_converted']}", Colors.GREEN)
+    colored_print(f"🗑️ Junk files deleted: {stats['junk_files_deleted'] + stats['files_deleted']}", Colors.YELLOW)
+    colored_print(f"❌ Files that couldn't be processed: {stats['files_failed']}", Colors.RED)
+    colored_print(f"🧹 Empty directories removed: {stats['empty_dirs_removed']}", Colors.YELLOW)
     
-    if archives_extracted > 0:
-        colored_print(f"📦 Archives extracted: {archives_extracted}", Colors.CYAN)
+    if stats['archives_extracted'] > 0:
+        colored_print(f"📦 Archives extracted: {stats['archives_extracted']}", Colors.CYAN)
 
 if __name__ == "__main__":
-    colored_print("\n📁 COMPREHENSIVE FILE PROCESSING UTILITY", Colors.HEADER + Colors.BOLD)
+    colored_print("\n📁 HIGH-PERFORMANCE FILE PROCESSING UTILITY", Colors.HEADER + Colors.BOLD)
+    colored_print(f"Using {MAX_WORKERS} worker threads on {CPU_COUNT} CPU cores", Colors.CYAN)
     colored_print("Converting all files to formats compatible with textract...\n", Colors.CYAN)
-    process_all_files()
+    
+    # Set thread stack size to handle deep recursion
+    threading.stack_size(8 * 1024 * 1024)  # 8MB stack size
+    
+    # Start with a clean thread
+    thread = threading.Thread(target=process_all_files)
+    thread.start()
+    thread.join()
