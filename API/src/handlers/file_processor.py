@@ -87,7 +87,7 @@ class FileProcessor:
             '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
             '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
             '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+            '.tif', '.tiff', '.tsv', '.txt', '.wav', 'wdp', '.xls', '.xlsx'
         ]
         
         # WPD files are handled separately by converting to PDF first
@@ -115,10 +115,10 @@ class FileProcessor:
     def _convert_wpd_to_pdf(self, wpd_path: str) -> Optional[str]:
         """
         Convert a WPD file to PDF using LibreOffice or another converter.
-        
+
         Args:
             wpd_path: Path to the WPD file
-            
+
         Returns:
             Path to the converted PDF file or None if conversion failed
         """
@@ -128,61 +128,83 @@ class FileProcessor:
                 # Get the base filename without extension
                 base_filename = os.path.basename(wpd_path)
                 base_name_no_ext = os.path.splitext(base_filename)[0]
-                
+
                 # LibreOffice may create the PDF with this name pattern
                 expected_pdf_name = f"{base_name_no_ext}.pdf"
                 expected_pdf_path = os.path.join(temp_dir, expected_pdf_name)
-                
+
                 logger.info(f"Using temp directory: {temp_dir}")
                 logger.info(f"Base filename: {base_filename}")
                 logger.info(f"Expected PDF path: {expected_pdf_path}")
-                
+
+                # Search for LibreOffice executable in various locations
+                libreoffice_paths = [
+                    "libreoffice",  # Regular PATH
+                    "/usr/bin/libreoffice",
+                    "/usr/lib/libreoffice/program/soffice",
+                    "/opt/libreoffice/program/soffice",
+                    "/usr/lib/libreoffice/program/libreoffice",
+                ]
+
+                libreoffice_exec = None
+                for path in libreoffice_paths:
+                    try:
+                        subprocess.run([path, "--version"], capture_output=True, text=True)
+                        libreoffice_exec = path
+                        logger.info(f"Found LibreOffice at: {path}")
+                        break
+                    except (FileNotFoundError, subprocess.SubprocessError):
+                        continue
+                    
+                if not libreoffice_exec:
+                    logger.error("LibreOffice executable not found in any of the expected locations")
+                    return None
+
                 # Use LibreOffice to convert WPD to PDF
-                cmd = ["libreoffice", "--headless", "--convert-to", "pdf", 
+                cmd = [libreoffice_exec, "--headless", "--convert-to", "pdf", 
                        "--outdir", temp_dir, wpd_path]
-                
+
                 logger.info(f"Running conversion command: {' '.join(cmd)}")
-                
+
                 process = subprocess.run(cmd, capture_output=True, text=True)
-                
+
                 # Log the output regardless of success
                 logger.info(f"Command stdout: {process.stdout}")
                 logger.info(f"Command stderr: {process.stderr}")
-                
-                if process.returncode != 0:
+
+                if process.returncode != 0 and not process.stdout.strip():
                     logger.error(f"Failed to convert WPD to PDF: {process.stderr}")
                     return None
-                
+
                 # List files in the output directory to find the converted file
                 logger.info(f"Checking output directory contents: {temp_dir}")
                 files_in_dir = os.listdir(temp_dir)
                 logger.info(f"Files in output directory: {files_in_dir}")
-                
+
                 pdf_files = [f for f in files_in_dir if f.endswith('.pdf')]
-                
+
                 if not pdf_files:
                     logger.error(f"No PDF files found in output directory")
                     return None
-                
+
                 # If we found PDF files, use the first one
                 actual_pdf_path = os.path.join(temp_dir, pdf_files[0])
                 logger.info(f"Found PDF file: {actual_pdf_path}")
-                
+
                 # Create a temporary file that will persist after this function returns
                 temp_pdf = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
                 temp_pdf.close()
-                
+
                 # Copy the converted PDF to our persistent temp file
                 logger.info(f"Copying PDF to persistent temp file: {temp_pdf.name}")
                 with open(actual_pdf_path, 'rb') as src, open(temp_pdf.name, 'wb') as dst:
                     dst.write(src.read())
-                
+
                 logger.info(f"Successfully created persistent PDF at: {temp_pdf.name}")
                 return temp_pdf.name
         except Exception as e:
             logger.error(f"Error converting WPD to PDF: {str(e)}", exc_info=True)
             return None
-     
     def extract_text(self, file_path: str) -> str:
         """
         Extract text from a document file.

@@ -505,13 +505,13 @@ class ElasticsearchHandler:
                             })
             
             # Date range filter
-            if date_range:
-                date_filter = {"range": {"metadata.timestamp": {}}}
-                if "start" in date_range and date_range["start"]:
-                    date_filter["range"]["metadata.timestamp"]["gte"] = date_range["start"]
-                if "end" in date_range and date_range["end"]:
-                    date_filter["range"]["metadata.timestamp"]["lte"] = date_range["end"]
-                filter_clauses.append(date_filter)
+            # if date_range:
+            #     date_filter = {"range": {"metadata.timestamp": {}}}
+            #     if "start" in date_range and date_range["start"]:
+            #         date_filter["range"]["metadata.timestamp"]["gte"] = date_range["start"]
+            #     if "end" in date_range and date_range["end"]:
+            #         date_filter["range"]["metadata.timestamp"]["lte"] = date_range["end"]
+            #     filter_clauses.append(date_filter)
             
             # Combine all query parts
             if must_clauses or filter_clauses:
@@ -556,6 +556,11 @@ class ElasticsearchHandler:
                 }
             
             # Execute the search
+            # Add this before the search execution
+            print("ASDJASJLKDALKSDLKAJDLKASJDLKSAJDASLKDJASKLDJLKSDJASKLJ")
+            print(f"Elasticsearch search body: {json.dumps(search_body, indent=2)}")
+            
+
             response = self.es.search(
                 index=self.index_name,
                 body=search_body

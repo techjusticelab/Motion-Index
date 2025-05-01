@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Initialize the S3 client
 export const s3Client = new S3Client({
-    region: import.meta.env.VITE_AWS_REGION || 'us-east-2',
+    region: import.meta.env.VITE_AWS_REGION || 'us-east-1',
     credentials: {
         accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
         secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
