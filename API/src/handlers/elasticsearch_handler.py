@@ -317,7 +317,7 @@ class ElasticsearchHandler:
             query: Optional text query string
             doc_type: Optional document type to filter by (e.g., "Motion", "Affidavit")
             metadata_filters: Optional dictionary of metadata field filters
-                Example: {"judge": "Smith", "court": "District Court"}
+                Example: {"judge": "Smith", "court": "District Court", "legal_tags": ["Criminal", "Family"]}
             date_range: Optional date range filter for document timestamps
                 Example: {"start": "2023-01-01", "end": "2023-12-31"}
             size: Maximum number of results to return
@@ -325,8 +325,6 @@ class ElasticsearchHandler:
             sort_by: Field to sort results by (e.g., "created_at", "metadata.timestamp")
             sort_order: Sort order ("asc" or "desc")
             use_fuzzy: Whether to use fuzzy matching for the query (default: False)
-                When False, performs exact matching which is better for specific terms like "DUI"
-                When True, allows for typos and variations using Elasticsearch's fuzzy matching
         
         Returns:
             Dictionary containing search results and metadata
@@ -363,7 +361,6 @@ class ElasticsearchHandler:
                     })
                 else:
                     # For exact matching, use a combination of match and match_phrase
-                    # The match_phrase ensures exact phrases are prioritized
                     if use_fuzzy:
                         # Use fuzzy matching only when explicitly requested
                         must_clauses.append({
@@ -381,13 +378,12 @@ class ElasticsearchHandler:
                         })
                     else:
                         # For non-fuzzy search, use exact matching
-                        # First add a standard multi_match without fuzziness
                         must_clauses.append({
                             "multi_match": {
                                 "query": query,
                                 "fields": [
-                                    "text^1",  # Text content with normal weight
-                                    "metadata.subject^2",  # Subject with higher weight
+                                    "text^1", 
+                                    "metadata.subject^2",
                                     "metadata.case_name^2", 
                                     "file_name^1.5"
                                 ],
@@ -401,13 +397,13 @@ class ElasticsearchHandler:
                             "multi_match": {
                                 "query": query,
                                 "fields": [
-                                    "text^2",  # Higher weight for exact matches
+                                    "text^2",
                                     "metadata.subject^3",
                                     "metadata.case_name^3",
                                     "file_name^2.5"
                                 ],
                                 "type": "phrase",
-                                "boost": 2.0  # Give exact matches a higher boost
+                                "boost": 2.0
                             }
                         })
             
@@ -417,106 +413,85 @@ class ElasticsearchHandler:
                     "term": {"doc_type.keyword": doc_type}
                 })
             
-            # Helper function for creating precise field queries
-            def create_precise_field_query(field, value, normalize_fn=None):
-                """Create a precise query for a field that supports both exact and fuzzy matching."""
-                if isinstance(value, list):
-                    # Handle multiple selections (OR condition)
-                    should_clauses = []
-                    for item in value:
-                        # Apply normalization if provided
-                        normalized_value = normalize_fn(item) if normalize_fn else item
-                        
-                        # Create a query with exact and fuzzy matching options
-                        query = {
-                            "bool": {
-                                "should": [
-                                    # Exact match on the normalized value
-                                    {"term": {f"metadata.{field}.keyword": normalized_value}},
-                                    # Exact match on the original value
-                                    {"term": {f"metadata.{field}.keyword": item}},
-                                    # Strict match query as fallback
-                                    {"match": {f"metadata.{field}": {
-                                        "query": normalized_value,
-                                        "operator": "and"
-                                    }}}
-                                ],
-                                "minimum_should_match": 1
-                            }
-                        }
-                        should_clauses.append(query)
-                    
-                    # Return a bool query with all the should clauses
-                    if should_clauses:
-                        return {
-                            "bool": {
-                                "should": should_clauses,
-                                "minimum_should_match": 1
-                            }
-                        }
-                    return None
-                else:
-                    # Single value selection
-                    normalized_value = normalize_fn(value) if normalize_fn else value
-                    
-                    # Return a query with exact and fuzzy matching options
-                    return {
-                        "bool": {
-                            "should": [
-                                # Exact match on the normalized value
-                                {"term": {f"metadata.{field}.keyword": normalized_value}},
-                                # Exact match on the original value
-                                {"term": {f"metadata.{field}.keyword": value}},
-                                # Strict match query as fallback
-                                {"match": {f"metadata.{field}": {
-                                    "query": normalized_value,
-                                    "operator": "and"
-                                }}}
-                            ],
-                            "minimum_should_match": 1
-                        }
-                    }
-            
             # Metadata filters
             if metadata_filters:
                 for field, value in metadata_filters.items():
-                    if value is not None:
-                        # Special handling for fields that need precise matching
-                        if field == 'court':
-                            # Use court name normalization
-                            query = create_precise_field_query(field, value, normalize_court_name)
-                            if query:
-                                filter_clauses.append(query)
-                        elif field == 'judge':
-                            # Use precise matching for judges (without normalization)
-                            query = create_precise_field_query(field, value)
-                            if query:
-                                filter_clauses.append(query)
-                        elif field == 'legal_tags':
-                            # Use terms query for legal tags (multiple selections)
-                            filter_clauses.append({
-                                "terms": {f"metadata.{field}.keyword": value}
-                            })
-                        # Handle other field types appropriately
+                    if value is not None and value != "" and value != []:
+                        # IMPORTANT: Special handling for legal_tags field
+                        if field == 'legal_tags':
+                            # Print debug information
+                            print(f"Applying legal_tags filter: {value}")
+                            
+                            if isinstance(value, list):
+                                if len(value) > 0:
+                                    # Create a terms query for multiple tags (OR condition)
+                                    filter_clauses.append({
+                                        "terms": {"metadata.legal_tags.keyword": value}
+                                    })
+                            else:
+                                # Create a term query for a single tag
+                                filter_clauses.append({
+                                    "term": {"metadata.legal_tags.keyword": value}
+                                })
+                        # Special handling for court field with normalization
+                        elif field == 'court':
+                            if isinstance(value, list):
+                                # Handle multiple court selections
+                                court_should_clauses = []
+                                for court in value:
+                                    normalized_court = normalize_court_name(court)
+                                    court_should_clauses.append({
+                                        "bool": {
+                                            "should": [
+                                                {"term": {"metadata.court.keyword": normalized_court}},
+                                                {"term": {"metadata.court.keyword": court}},
+                                                {"match": {"metadata.court": {"query": normalized_court, "operator": "and"}}}
+                                            ],
+                                            "minimum_should_match": 1
+                                        }
+                                    })
+                                
+                                if court_should_clauses:
+                                    filter_clauses.append({
+                                        "bool": {
+                                            "should": court_should_clauses,
+                                            "minimum_should_match": 1
+                                        }
+                                    })
+                            else:
+                                # Single court selection
+                                normalized_court = normalize_court_name(value)
+                                filter_clauses.append({
+                                    "bool": {
+                                        "should": [
+                                            {"term": {"metadata.court.keyword": normalized_court}},
+                                            {"term": {"metadata.court.keyword": value}},
+                                            {"match": {"metadata.court": {"query": normalized_court, "operator": "and"}}}
+                                        ],
+                                        "minimum_should_match": 1
+                                    }
+                                })
+                        # Handle other fields
                         elif isinstance(value, list):
-                            # For list values, use terms query (OR condition)
-                            filter_clauses.append({
-                                "terms": {f"metadata.{field}": value}
-                            })
+                            if len(value) > 0:
+                                # For list values, use terms query (OR condition)
+                                filter_clauses.append({
+                                    "terms": {f"metadata.{field}.keyword": value}
+                                })
                         else:
                             # For single values, use term query
                             filter_clauses.append({
-                                "term": {f"metadata.{field}": value}
+                                "term": {f"metadata.{field}.keyword": value}
                             })
             
             # Date range filter
-            # if date_range:
-            #     date_filter = {"range": {"metadata.timestamp": {}}}
-            #     if "start" in date_range and date_range["start"]:
-            #         date_filter["range"]["metadata.timestamp"]["gte"] = date_range["start"]
-            #     if "end" in date_range and date_range["end"]:
-            #         date_filter["range"]["metadata.timestamp"]["lte"] = date_range["end"]
-            #     filter_clauses.append(date_filter)
+            if date_range:
+                date_filter = {"range": {"metadata.timestamp": {}}}
+                if "start" in date_range and date_range["start"]:
+                    date_filter["range"]["metadata.timestamp"]["gte"] = date_range["start"]
+                if "end" in date_range and date_range["end"]:
+                    date_filter["range"]["metadata.timestamp"]["lte"] = date_range["end"]
+                filter_clauses.append(date_filter)
             
             # Combine all query parts
             if must_clauses or filter_clauses:
@@ -531,13 +506,11 @@ class ElasticsearchHandler:
             
             # Add sorting if specified
             if sort_by:
-                # Default to metadata.timestamp for date sorting instead of created_at
                 if sort_by == "created_at":
                     sort_field = "metadata.timestamp"
                 else:
-                    # Use .keyword suffix for text fields when sorting
                     sort_field = sort_by
-                    if not sort_by.endswith(".keyword"):
+                    if not sort_by.endswith(".keyword") and sort_by != "metadata.timestamp":
                         sort_field = f"{sort_by}.keyword"
                 search_body["sort"] = [{sort_field: {"order": sort_order}}]
                 
@@ -560,12 +533,11 @@ class ElasticsearchHandler:
                     }
                 }
             
-            # Execute the search
-            # Add this before the search execution
-            print("ASDJASJLKDALKSDLKAJDLKASJDLKSAJDASLKDJASKLDJLKSDJASKLJ")
-            print(f"Elasticsearch search body: {json.dumps(search_body, indent=2)}")
+            # Print the full search body for debugging
+            print("Search query:")
+            print(json.dumps(search_body, indent=2))
             
-
+            # Execute the search
             response = self.es.search(
                 index=self.index_name,
                 body=search_body
@@ -595,13 +567,13 @@ class ElasticsearchHandler:
             }
         except Exception as e:
             logger.error(f"Error searching documents: {e}")
+            logger.exception(e)  # Log the full exception traceback
             return {
                 "total": 0,
                 "hits": [],
                 "page_size": size,
                 "from": from_value
             }
-    
     def get_legal_tags(self) -> List[str]:
         """
         Get a list of all legal tags (categories) used in the documents.
@@ -618,7 +590,7 @@ class ElasticsearchHandler:
                         "legal_tags": {
                             "terms": {
                                 "field": "metadata.legal_tags.keyword",
-                                "size": 20  # Get up to 100 different categories
+                                "size": 50  # Get up to 50 different legal tags
                             }
                         }
                     }
@@ -672,7 +644,7 @@ class ElasticsearchHandler:
         Useful for autocomplete functionality in search interfaces.
         
         Args:
-            field: Metadata field name (e.g., "judge", "court")
+            field: Metadata field name (e.g., "judge", "court", "legal_tags")
             prefix: Optional prefix to filter values (for autocomplete)
             size: Maximum number of values to return
             
@@ -761,9 +733,13 @@ class ElasticsearchHandler:
             min_date = aggs.get("min_date", {}).get("value_as_string")
             max_date = aggs.get("max_date", {}).get("value_as_string")
             
+            # Get legal tags statistics
+            legal_tags = self.get_legal_tags()
+            
             return {
                 "total_documents": total_docs,
                 "document_types": doc_types,
+                "legal_tags": legal_tags,
                 "date_range": {
                     "oldest": min_date,
                     "newest": max_date
