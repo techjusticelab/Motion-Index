@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://172.19.0.2:8000';
+// const API_URL = 'http://172.19.0.2:8000';
+const API_URL = 'http://172.20.0.2:8000';
 // const API_URL = 'http://0.0.0.0:8000'
 
 // Define types
@@ -147,7 +148,7 @@ export async function categoriseDocument(file: File): Promise<any> {
         "Content-Type": "multipart/form-data",
       },
     });
-
+    console.log("Categorise response:", response.data);
     return response.data;
   } catch (error) {
     console.error("Error categorising document:", error);

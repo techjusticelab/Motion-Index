@@ -226,7 +226,7 @@
 			selectedFile = null;
 			fileInputLabel = 'Drag and drop your file here or click to browse';
 
-			uploadStatus = 'Document categorised successfully!';
+			uploadStatus = response.data;
 		} catch (error) {
 			uploadStatus = 'Failed to categorise document. Please try again.';
 			console.error(error);
@@ -557,15 +557,7 @@
 									</svg>
 								</div>
 							{:else if getFileIcon(doc.type) === 'text' || getFileIconByName(doc.name) === 'text'}
-								<div
-									class="document-icon text"
-									in:scale={{
-										start: 0.85,
-										duration: 600,
-										delay: 250 + i * 100,
-										easing: elasticOut
-									}}
-								>
+								<div class="document-icon text">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										viewBox="0 0 24 24"
@@ -583,15 +575,7 @@
 									</svg>
 								</div>
 							{:else}
-								<div
-									class="document-icon generic"
-									in:scale={{
-										start: 0.85,
-										duration: 600,
-										delay: 250 + i * 100,
-										easing: elasticOut
-									}}
-								>
+								<div class="document-icon generic">
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										viewBox="0 0 24 24"
@@ -606,11 +590,7 @@
 									</svg>
 								</div>
 							{/if}
-							<div
-								class="document-name"
-								title={doc.name}
-								in:fade={{ duration: 400, delay: 300 + i * 100 }}
-							>
+							<div class="document-name" title={doc.name}>
 								{doc.name.length > 20 ? doc.name.substring(0, 17) + '...' : doc.name}
 							</div>
 						</div>
@@ -620,198 +600,129 @@
 		{/if}
 
 		{#if documentResponse}
-			<div class="document-details" in:fly={{ y: 30, duration: 700, easing: cubicOut }}>
-				<h2 class="text-lg font-semibold" in:slide={{ duration: 600, delay: 100 }}>
-					Document Details
-				</h2>
+			<div class="document-details">
+				<h2 class="text-lg font-semibold">Document Details</h2>
 
 				<!-- Add edit button and metadata form -->
-				<div
-					class="metadata-controls mb-4"
-					in:fly={{ y: 10, duration: 600, delay: 200, easing: cubicOut }}
-				>
+				<div class="metadata-controls mb-4">
 					<button
 						class="edit-metadata-button"
-						on:click={() => openMetadataPanel(documentResponse)}
-						in:scale={{ start: 0.95, duration: 500, delay: 300, easing: cubicOut }}
+						on:click={() => (isEditingMetadata = !isEditingMetadata)}
 					>
-						Edit Metadata
+						{isEditingMetadata ? 'Cancel' : 'Edit Metadata'}
 					</button>
 				</div>
 
-				<pre class="details-json" in:fade={{ duration: 700, delay: 400 }}>{JSON.stringify(
-						documentResponse,
-						null,
-						2
-					)}</pre>
+				{#if isEditingMetadata}
+					<div class="metadata-form">
+						<div class="form-group">
+							<label for="doc-type">Document Type</label>
+							<input id="doc-type" type="text" bind:value={editableMetadata.doc_type} />
+						</div>
+						<div class="form-group">
+							<label for="category">Category</label>
+							<input id="category" type="text" bind:value={editableMetadata.category} />
+						</div>
+						<div class="form-group">
+							<label for="case-name">Case Name</label>
+							<input id="case-name" type="text" bind:value={editableMetadata.metadata.case_name} />
+						</div>
+						<div class="form-group">
+							<label for="case-number">Case Number</label>
+							<input
+								id="case-number"
+								type="text"
+								bind:value={editableMetadata.metadata.case_number}
+							/>
+						</div>
+						<div class="form-group">
+							<label for="court">Court</label>
+							<input id="court" type="text" bind:value={editableMetadata.metadata.court} />
+						</div>
+						<div class="form-group">
+							<label for="judge">Judge</label>
+							<input id="judge" type="text" bind:value={editableMetadata.metadata.judge} />
+						</div>
+						<div class="form-group">
+							<label for="status">Status</label>
+							<input id="status" type="text" bind:value={editableMetadata.metadata.status} />
+						</div>
+
+						<div class="form-actions">
+							<button class="save-metadata-button" on:click={saveMetadata}> Save Changes </button>
+						</div>
+					</div>
+				{:else}
+					<pre class="details-json">{JSON.stringify(documentResponse, null, 2)}</pre>
+				{/if}
 			</div>
 		{/if}
 	</div>
 </div>
 
-<!-- Metadata panel that uses Svelte animations to slide in from the right -->
-{#if isMetadataPanelOpen}
-	<div
-		class="metadata-panel-overlay"
-		on:click={closeMetadataPanel}
-		in:fade={{ duration: 400 }}
-		out:fade={{ duration: 300 }}
-	></div>
-
-	<div
-		class="metadata-panel"
-		in:fly={{ x: 400, duration: 500, easing: cubicOut }}
-		out:fly={{ x: 400, duration: 400, easing: cubicOut }}
-	>
-		<div class="panel-header" in:fly={{ y: -10, duration: 600, delay: 100, easing: cubicOut }}>
-			<h2 in:slide={{ duration: 500, delay: 200 }}>Document Metadata</h2>
-			<button
-				class="close-btn"
-				on:click={closeMetadataPanel}
-				in:fade={{ duration: 400, delay: 300 }}>&times;</button
-			>
-		</div>
-
-		<form class="metadata-form" on:submit|preventDefault={saveMetadataFromPanel}>
-			{#each Object.entries(currentMetadata) as [key, value], i}
-				{#if key !== 'legal_tags'}
-					<div
-						class="form-group"
-						in:fly={{ y: 20, delay: 400 + i * 80, duration: 500, easing: cubicOut }}
-					>
-						<label for={key}
-							>{key.replace(/_/g, ' ').replace(/(?:^|\s)\S/g, (a) => a.toUpperCase())}</label
-						>
-						<input type="text" id={key} bind:value={currentMetadata[key]} />
-					</div>
-				{/if}
-			{/each}
-
-			<div
-				class="form-group"
-				in:fly={{
-					y: 20,
-					delay: 400 + Object.keys(currentMetadata).length * 80,
-					duration: 500,
-					easing: cubicOut
-				}}
-			>
-				<label>Legal Tags</label>
-				<div class="tags-container">
-					{#each legalTags as tag, index}
-						<div
-							class="tag"
-							in:scale={{
-								start: 0.9,
-								duration: 400,
-								delay: 500 + Object.keys(currentMetadata).length * 80 + index * 50,
-								easing: elasticOut
-							}}
-						>
-							{tag}
-							<span class="tag-remove" on:click={() => removeTag(index)}>&times;</span>
-						</div>
-					{/each}
-				</div>
-				<div
-					class="tag-input"
-					in:fly={{
-						y: 10,
-						duration: 500,
-						delay: 500 + Object.keys(currentMetadata).length * 80 + legalTags.length * 50,
-						easing: cubicOut
-					}}
-				>
-					<input
-						type="text"
-						placeholder="Add a tag"
-						bind:value={tagInput}
-						on:keydown={handleTagKeydown}
-					/>
-					<button type="button" class="add-tag-btn" on:click={addTag}>Add</button>
-				</div>
-			</div>
-
-			<button
-				type="submit"
-				class="submit-btn"
-				in:scale={{
-					start: 0.97,
-					duration: 600,
-					delay: 600 + Object.keys(currentMetadata).length * 80 + legalTags.length * 50,
-					easing: backOut
-				}}
-			>
-				Update Metadata
-			</button>
-		</form>
-	</div>
-{/if}
-
 <style>
-	.metadata-form {
-		background-color: #f9fafb;
-		border-radius: 0.5rem;
-		padding: 1rem;
-		margin-bottom: 1rem;
-		border: 1px solid #e5e7eb;
-	}
+    .metadata-form {
+    background-color: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e5e7eb;
+}
 
-	.form-group {
-		margin-bottom: 1rem;
-	}
+.form-group {
+    margin-bottom: 1rem;
+}
 
-	.form-group label {
-		display: block;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: #4b5563;
-		margin-bottom: 0.25rem;
-	}
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4b5563;
+    margin-bottom: 0.25rem;
+}
 
-	.form-group input {
-		width: 100%;
-		padding: 0.5rem;
-		border: 1px solid #d1d5db;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-	}
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
 
-	.form-actions {
-		display: flex;
-		justify-content: flex-end;
-		margin-top: 1.5rem;
-	}
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
 
-	.edit-metadata-button,
-	.save-metadata-button {
-		padding: 0.5rem 1rem;
-		border-radius: 0.375rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		transition: all 0.2s;
-	}
+.edit-metadata-button, .save-metadata-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
 
-	.edit-metadata-button {
-		background-color: #f3f4f6;
-		color: #4b5563;
-		border: 1px solid #d1d5db;
-		margin-right: 0.5rem;
-	}
+.edit-metadata-button {
+    background-color: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+    margin-right: 0.5rem;
+}
 
-	.edit-metadata-button:hover {
-		background-color: #e5e7eb;
-	}
+.edit-metadata-button:hover {
+    background-color: #e5e7eb;
+}
 
-	.save-metadata-button {
-		background-color: #6366f1;
-		color: white;
-		border: none;
-	}
+.save-metadata-button {
+    background-color: #6366f1;
+    color: white;
+    border: none;
+}
 
-	.save-metadata-button:hover {
-		background-color: #4f46e5;
-	}
+.save-metadata-button:hover {
+    background-color: #4f46e5;
+}
 	.upload-container {
 		width: 90%;
 		max-width: 700px;
@@ -917,7 +828,7 @@
 	}
 
 	.upload-button.disabled {
-		background-color: #9ca3af;
+		background-color: #9ca3af
 		cursor: not-allowed;
 	}
 
@@ -1054,117 +965,5 @@
 		margin-top: 0.5rem;
 		font-size: 0.875rem;
 		border: 1px solid #e5e7eb;
-	}
-
-	/* Metadata panel styles with Svelte animation integration */
-	.metadata-panel-overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.3);
-		z-index: 998;
-	}
-
-	.metadata-panel {
-		position: fixed;
-		top: 0;
-		right: 0;
-		width: 400px;
-		max-width: 90vw;
-		height: 100vh;
-		overflow-y: auto;
-		background-color: white;
-		box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
-		padding: 1.5rem;
-		z-index: 999;
-	}
-
-	.panel-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1.5rem;
-		padding-bottom: 0.5rem;
-		border-bottom: 1px solid #e5e7eb;
-	}
-
-	.panel-header h2 {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: #1f2937;
-	}
-
-	.close-btn {
-		background: none;
-		border: none;
-		font-size: 1.5rem;
-		cursor: pointer;
-		color: #6b7280;
-	}
-
-	.tags-container {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 0.75rem;
-	}
-
-	.tag {
-		background-color: #e5e7eb;
-		color: #4b5563;
-		font-size: 0.75rem;
-		padding: 0.25rem 0.75rem;
-		border-radius: 9999px;
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-	}
-
-	.tag-remove {
-		cursor: pointer;
-		font-weight: bold;
-	}
-
-	.tag-input {
-		display: flex;
-		gap: 0.5rem;
-		margin-top: 0.5rem;
-	}
-
-	.tag-input input {
-		flex-grow: 1;
-	}
-
-	.add-tag-btn {
-		background-color: #6b7280;
-		color: white;
-		border: none;
-		border-radius: 0.25rem;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.75rem;
-		cursor: pointer;
-	}
-
-	.add-tag-btn:hover {
-		background-color: #4b5563;
-	}
-
-	.submit-btn {
-		width: 100%;
-		background-color: #6366f1;
-		color: white;
-		border: none;
-		border-radius: 0.375rem;
-		padding: 0.75rem 1rem;
-		font-weight: 500;
-		margin-top: 1.5rem;
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
-
-	.submit-btn:hover {
-		background-color: #4f46e5;
 	}
 </style>

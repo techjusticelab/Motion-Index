@@ -311,7 +311,7 @@ class FileProcessor:
             '.csv','.eml', '.epub', '.gif', '.htm', '.html',
             '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
             '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
+            '.tif', '.tiff', '.tsv', '.txt', ".docx", '.wav', '.xls', '.xlsx'
         ]
         
         if ext in textract_supported or ext in SUPPORTED_FORMATS:
@@ -580,9 +580,14 @@ class FileProcessor:
                 elif "text/" in mime_type:
                     # It's a text file
                     ext = ".txt"
+                else:
+                    return ext
             except:
+                
+                logger.warning(f"Could not determine MIME type for file without extension: {file_path}")
                 pass
         
+        print(f"Processing file: {file_path} with extension: {ext}")
         # Get methods to try for this file type
         methods_to_try = self.textract_methods.get(ext, [])
         

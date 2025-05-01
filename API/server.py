@@ -57,17 +57,26 @@ es_handler = ElasticsearchHandler(
     use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true"
 )
 
-# Initialize DocumentProcessor
-document_processor = DocumentProcessor(
-    es_host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
-    es_port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
-    es_index=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
-    es_username=os.environ.get("ES_USERNAME"),
-    es_password=os.environ.get("ES_PASSWORD"),
-    es_api_key=os.environ.get("ES_API_KEY"),
-    es_cloud_id=os.environ.get("ES_CLOUD_ID"),
-    use_llm_classification=True
-)
+processor = DocumentProcessor(
+        # Elasticsearch settings
+        es_username=os.environ.get("ES_USERNAME"),
+        es_password=os.environ.get("ES_PASSWORD"),
+        es_api_key=os.environ.get("ES_API_KEY"),
+        es_host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
+        es_port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
+        es_index=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
+        es_cloud_id=os.environ.get("ES_CLOUD_ID"),
+        es_use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true",
+        # S3 settings
+        s3_bucket=os.environ.get("S3_BUCKET_NAME"),
+        s3_region=os.environ.get("AWS_REGION"),
+        s3_access_key=os.environ.get("AWS_ACCESS_KEY_ID"),
+        s3_secret_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+        # Processing settings
+        max_workers=os.environ.get("MAX_WORKERS", 4),
+        batch_size=os.environ.get("BATCH_SIZE", 100),
+    )
+
 
 # Pydantic models for request/response
 class SearchRequest(BaseModel):
@@ -259,24 +268,28 @@ async def categorise_document(file: UploadFile = File(...)):
             temp_file.write(await file.read())
 
         # Process and categorise the file using DocumentProcessor
-        document = document_processor.process_file(temp_file_path)
+        document = processor.process_file(temp_file_path)
         print(document) 
         if not document:
             raise HTTPException(status_code=400, detail="Already processed or invalid file")
         
         # Index the document in Elasticsearch to get an ID
         try:
-            es_handler.index_document(document)
+            doc_id = es_handler.index_document(document)
+            full_document = es_handler.get_document(doc_id)
         except Exception as e:
             print(f"Error indexing document: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to index document: {str(e)}")
         
         # Retrieve the full document data from Elasticsearch
         print("Document indexed successfully")
-        full_document = es_handler.get_document(doc_id)
         print("Document indexed with ID: {doc_id}")
         # Clean up the temporary file
-        os.remove(temp_file_path)
+        try:
+            os.remove(temp_file_path)
+        except Exception as e:
+            print(f"Error deleting temporary file: {str(e)}")
+        print(full_document)
         return {
             "message": "Document categorised successfully",
             "document": full_document

@@ -129,7 +129,7 @@ class ElasticsearchHandler:
 
             # Get the document hash for the ID
             doc_id = getattr(document, 'hash', None) or doc_dict.get('hash_value')
-
+            print(f"Document ID: {doc_id}")
             # Index the document
             response = self.es.index(
                 index=self.index_name, 
