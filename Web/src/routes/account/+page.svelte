@@ -14,7 +14,7 @@
 		if (user) {
 			loading = true;
 			const { data, error } = await $page.data.supabase
-				.from('profiles')
+				.from('Users')
 				.select('*')
 				.eq('id', user.id)
 				.single();

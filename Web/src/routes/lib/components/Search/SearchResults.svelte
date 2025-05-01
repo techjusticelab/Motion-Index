@@ -3,6 +3,8 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { Document, SearchResponse } from '../../../utils/search_types';
 	import { formatDate } from '../../../utils/utils';
+	import { fade, fly, slide, scale } from 'svelte/transition';
+	import { cubicOut, quintOut } from 'svelte/easing';
 
 	export let searchResults: SearchResponse;
 	export let isLoading: boolean = false;
@@ -21,7 +23,6 @@
 	}
 
 	function goToPage(page: number) {
-		if (page < 1 || page > totalPages) return;
 		dispatch('goToPage', page);
 	}
 
@@ -30,12 +31,23 @@
 	}
 </script>
 
-<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-	<div class="flex items-center justify-between border-b border-gray-100 p-5">
-		<h2 class="text-lg font-semibold text-gray-800">Results</h2>
+<div
+	class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"
+	in:fly={{ y: 15, duration: 600, easing: cubicOut }}
+>
+	<div
+		class="flex items-center justify-between border-b border-gray-100 p-5"
+		in:fly={{ y: -10, duration: 500, delay: 100, easing: cubicOut }}
+	>
+		<h2 class="text-lg font-semibold text-gray-800" in:slide={{ duration: 500, delay: 200 }}>
+			Results
+		</h2>
 
 		<!-- Results Count -->
-		<div class="text-sm font-medium">
+		<div
+			class="text-sm font-medium"
+			in:scale={{ start: 0.95, duration: 600, delay: 300, easing: cubicOut }}
+		>
 			{#if isLoading}
 				<div class="flex items-center text-gray-500">
 					<svg
@@ -57,7 +69,10 @@
 			{:else if searchResults.total === 0}
 				<span class="text-gray-500">No documents found</span>
 			{:else}
-				<span class="rounded-full bg-blue-50 px-3 py-1 text-blue-700">
+				<span
+					class="rounded-full bg-blue-50 px-3 py-1 text-blue-700"
+					in:scale={{ start: 0.9, duration: 500, easing: cubicOut }}
+				>
 					{searchResults.total} document{searchResults.total !== 1 ? 's' : ''}
 				</span>
 			{/if}
@@ -66,7 +81,11 @@
 
 	<!-- Error Message -->
 	{#if error}
-		<div class="m-5 border-l-4 border-red-500 bg-red-50 p-4 text-red-700" role="alert">
+		<div
+			class="m-5 border-l-4 border-red-500 bg-red-50 p-4 text-red-700"
+			role="alert"
+			in:fly={{ x: -5, y: 0, duration: 600, easing: cubicOut }}
+		>
 			<p class="text-sm">{error}</p>
 		</div>
 	{/if}
@@ -75,30 +94,42 @@
 	<div class="p-5">
 		{#if searchResults.hits.length > 0}
 			<div class="space-y-4">
-				{#each searchResults.hits as document}
+				{#each searchResults.hits as document, i}
 					<div
 						class="cursor-pointer rounded-lg border border-gray-100 p-4 shadow-sm transition-all hover:bg-gray-50"
 						on:click={() => openDocumentViewer(document)}
+						in:fly={{ y: 20, duration: 600, delay: 200 + i * 100, easing: cubicOut }}
 					>
 						<div class="mb-2 flex flex-wrap items-start justify-between gap-2">
 							<div>
-								<h3 class="text-base font-medium text-blue-700">
-									{document.metadata.document_name || document.file_name}
+								<h3
+									class="text-base font-medium text-blue-700"
+									in:slide={{ duration: 500, delay: 250 + i * 100 }}
+								>
+									{document.metadata.subject}
 								</h3>
 
 								{#if document.metadata.subject}
-									<h2 class="text-sm font-medium text-gray-600">
-										<b>Summary: </b>
-										{document.metadata.subject}
+									<h2
+										class="text-sm font-medium text-gray-600"
+										in:slide={{ duration: 500, delay: 300 + i * 100 }}
+									>
+										{document.metadata.document_name || document.file_name}
 									</h2>
 								{/if}
 							</div>
 							<div class="flex flex-wrap gap-2">
-								<span class="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+								<span
+									class="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700"
+									in:scale={{ start: 0.9, duration: 500, delay: 350 + i * 100, easing: cubicOut }}
+								>
 									{document.doc_type}
 								</span>
 								{#if document.metadata.status}
-									<span class="rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+									<span
+										class="rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700"
+										in:scale={{ start: 0.9, duration: 500, delay: 400 + i * 100, easing: cubicOut }}
+									>
 										{document.metadata.status}
 									</span>
 								{/if}
@@ -106,18 +137,27 @@
 						</div>
 
 						{#if document.highlight?.text}
-							<div class="mt-2 rounded-md bg-yellow-50 p-3 text-sm text-gray-700">
+							<div
+								class="mt-2 rounded-md bg-yellow-50 p-3 text-sm text-gray-700"
+								in:fade={{ duration: 700, delay: 450 + i * 100 }}
+							>
 								{#each document.highlight.text as highlight}
 									<p class="mb-1">...{@html highlight}...</p>
 								{/each}
 							</div>
 						{:else}
-							<p class="mt-2 line-clamp-2 text-sm text-gray-600">
+							<p
+								class="mt-2 line-clamp-2 text-sm text-gray-600"
+								in:fade={{ duration: 700, delay: 450 + i * 100 }}
+							>
 								{document.text.substring(0, 150)}...
 							</p>
 						{/if}
 
-						<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
+						<div
+							class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3"
+							in:fade={{ duration: 700, delay: 500 + i * 100 }}
+						>
 							{#if document.metadata.case_number}
 								<div class="flex items-center">
 									<span class="text-gray-500">Case #:</span>
@@ -180,9 +220,15 @@
 						{#if document.metadata.legal_tags && document.metadata.legal_tags.length > 0}
 							<div class="mt-2">
 								<div class="flex flex-wrap gap-1">
-									{#each document.metadata.legal_tags as tag}
+									{#each document.metadata.legal_tags as tag, j}
 										<span
 											class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800"
+											in:scale={{
+												start: 0.9,
+												duration: 400,
+												delay: 550 + i * 100 + j * 50,
+												easing: cubicOut
+											}}
 										>
 											{tag}
 										</span>
@@ -196,12 +242,26 @@
 
 			<!-- Pagination -->
 			{#if totalPages > 1}
-				<div class="mt-6 flex justify-center">
+				<div
+					class="mt-6 flex justify-center"
+					in:fly={{
+						y: 15,
+						duration: 600,
+						delay: 300 + searchResults.hits.length * 50,
+						easing: cubicOut
+					}}
+				>
 					<div class="inline-flex rounded-md shadow-sm" aria-label="Pagination">
 						<button
-							on:click={() => goToPage(currentPage - 1)}
+							on:click={() => goToPage(currentPage + 1)}
 							disabled={currentPage === 1 || isLoading}
 							class="relative inline-flex items-center rounded-l-md border border-gray-200 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+							in:scale={{
+								start: 0.95,
+								duration: 400,
+								delay: 350 + searchResults.hits.length * 50,
+								easing: cubicOut
+							}}
 						>
 							<svg
 								class="h-5 w-5"
@@ -222,6 +282,12 @@
 								<button
 									on:click={() => goToPage(i + 1)}
 									class={`relative inline-flex items-center border px-3 py-2 text-sm font-medium ${currentPage === i + 1 ? 'z-10 border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+									in:scale={{
+										start: 0.95,
+										duration: 400,
+										delay: 400 + searchResults.hits.length * 50 + i * 50,
+										easing: cubicOut
+									}}
 								>
 									{i + 1}
 								</button>
@@ -229,12 +295,24 @@
 								<button
 									on:click={() => goToPage(currentPage)}
 									class="relative z-10 inline-flex items-center border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700"
+									in:scale={{
+										start: 0.95,
+										duration: 400,
+										delay: 400 + searchResults.hits.length * 50 + i * 50,
+										easing: cubicOut
+									}}
 								>
 									{currentPage}
 								</button>
 							{:else if (i === 1 && currentPage > 3) || (i === 3 && currentPage < totalPages - 2)}
 								<span
 									class="relative inline-flex items-center border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+									in:scale={{
+										start: 0.95,
+										duration: 400,
+										delay: 400 + searchResults.hits.length * 50 + i * 50,
+										easing: cubicOut
+									}}
 								>
 									...
 								</span>
@@ -245,6 +323,12 @@
 							on:click={() => goToPage(currentPage + 1)}
 							disabled={currentPage === totalPages || isLoading}
 							class="relative inline-flex items-center rounded-r-md border border-gray-200 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+							in:scale={{
+								start: 0.95,
+								duration: 400,
+								delay: 450 + searchResults.hits.length * 50,
+								easing: cubicOut
+							}}
 						>
 							<svg
 								class="h-5 w-5"
@@ -263,13 +347,14 @@
 				</div>
 			{/if}
 		{:else if !isLoading}
-			<div class="py-10 text-center">
+			<div class="py-10 text-center" in:fly={{ y: 20, duration: 600, easing: cubicOut }}>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mx-auto mb-4 h-12 w-12 text-gray-300"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
+					in:scale={{ start: 0.8, duration: 700, delay: 200, easing: quintOut }}
 				>
 					<path
 						stroke-linecap="round"
@@ -278,11 +363,14 @@
 						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
 					/>
 				</svg>
-				<p class="text-sm text-gray-500">No documents found matching your search criteria</p>
+				<p class="text-sm text-gray-500" in:fade={{ duration: 600, delay: 400 }}>
+					No documents found matching your search criteria
+				</p>
 				<button
 					type="button"
 					on:click={resetFilters}
 					class="mt-4 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+					in:scale={{ start: 0.95, duration: 600, delay: 600, easing: cubicOut }}
 				>
 					Reset filters
 				</button>

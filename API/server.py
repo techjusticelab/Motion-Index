@@ -141,7 +141,8 @@ async def search_documents(search_request: SearchRequest):
             size=search_request.size,
             sort_by=search_request.sort_by,
             sort_order=search_request.sort_order,
-            use_fuzzy=search_request.use_fuzzy
+            use_fuzzy=search_request.use_fuzzy,
+            from_value=from_value
         )
         return results
     except Exception as e:
@@ -255,19 +256,23 @@ async def categorise_document(file: UploadFile = File(...)):
 
         # Process and categorise the file using DocumentProcessor
         document = document_processor.process_file(temp_file_path)
-        
+        print(document) 
         if not document:
-            raise HTTPException(status_code=400, detail="Failed to process the document")
+            raise HTTPException(status_code=400, detail="Already processed or invalid file")
         
         # Index the document in Elasticsearch to get an ID
-        doc_id = es_handler.index_document(document)
+        try:
+            es_handler.index_document(document)
+        except Exception as e:
+            print(f"Error indexing document: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to index document: {str(e)}")
         
         # Retrieve the full document data from Elasticsearch
+        print("Document indexed successfully")
         full_document = es_handler.get_document(doc_id)
-        
+        print("Document indexed with ID: {doc_id}")
         # Clean up the temporary file
         os.remove(temp_file_path)
-
         return {
             "message": "Document categorised successfully",
             "document": full_document

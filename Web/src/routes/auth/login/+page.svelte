@@ -3,6 +3,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { fade, fly, slide, scale } from 'svelte/transition';
+	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
+	import { browser } from '$app/environment';
 
 	let email = '';
 	let password = '';
@@ -21,7 +24,7 @@
 
 			if (err) throw err;
 
-			// Add a console log to confirm the login was successful
+			// Add a console log to confirm the login was successfulSign in to Motion Index
 			console.log('Login successful:', data);
 
 			// Make sure to wait for the invalidation to complete
@@ -44,20 +47,40 @@
 	}
 </script>
 
-<div class="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
-	<div class="sm:mx-auto sm:w-full sm:max-w-md">
-		<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to Motion Index</h2>
-		<p class="mt-2 text-center text-sm text-gray-600">Access your legal documents repository</p>
+<div
+	class="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8"
+	in:fade={{ duration: 600, easing: cubicOut }}
+>
+	<div class="sm:mx-auto sm:w-full sm:max-w-md" in:fly={{ y: 20, duration: 700, easing: cubicOut }}>
+		<h2
+			class="mt-6 text-center text-3xl font-extrabold text-gray-900"
+			in:fly={{ y: -10, duration: 700, delay: 200, easing: cubicOut }}
+		>
+			Sign in to Motion Index
+		</h2>
+		<p class="mt-2 text-center text-sm text-gray-600" in:fade={{ duration: 600, delay: 300 }}>
+			Access your legal documents repository
+		</p>
 	</div>
 
-	<div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-		<div class="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
-			<form class="space-y-6" on:submit|preventDefault={handleLogin}>
+	<div
+		class="mt-8 sm:mx-auto sm:w-full sm:max-w-md"
+		in:fly={{ y: 30, duration: 700, delay: 300, easing: cubicOut }}
+	>
+		<div
+			class="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10"
+			in:scale={{ start: 0.97, duration: 600, delay: 400, easing: cubicOut }}
+		>
+			<form
+				class="space-y-6"
+				on:submit|preventDefault={handleLogin}
+				in:fade={{ duration: 500, delay: 500 }}
+			>
 				{#if error}
-					<div class="rounded-md bg-red-50 p-4">
+					<div class="rounded-md bg-red-50 p-4" in:fly={{ y: -5, duration: 500, easing: cubicOut }}>
 						<div class="flex">
 							<div class="ml-3">
-								<h3 class="text-sm font-medium text-red-800">
+								<h3 class="text-sm font-medium text-red-800" in:slide={{ duration: 400 }}>
 									{error}
 								</h3>
 							</div>
@@ -65,7 +88,7 @@
 					</div>
 				{/if}
 
-				<div>
+				<div in:fly={{ y: 15, duration: 500, delay: 600, easing: cubicOut }}>
 					<label for="email" class="block text-sm font-medium text-gray-700"> Email address </label>
 					<div class="mt-1">
 						<input
@@ -80,7 +103,7 @@
 					</div>
 				</div>
 
-				<div>
+				<div in:fly={{ y: 15, duration: 500, delay: 700, easing: cubicOut }}>
 					<label for="password" class="block text-sm font-medium text-gray-700"> Password </label>
 					<div class="mt-1">
 						<input
@@ -95,7 +118,10 @@
 					</div>
 				</div>
 
-				<div class="flex items-center justify-between">
+				<div
+					class="flex items-center justify-between"
+					in:fly={{ y: 15, duration: 500, delay: 800, easing: cubicOut }}
+				>
 					<div class="text-sm">
 						<a
 							href="/auth/forgot-password"
@@ -106,11 +132,12 @@
 					</div>
 				</div>
 
-				<div>
+				<div in:fly={{ y: 15, duration: 500, delay: 900, easing: cubicOut }}>
 					<button
 						type="submit"
 						disabled={loading}
 						class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+						in:scale={{ start: 0.98, duration: 600, delay: 1000, easing: backOut }}
 					>
 						{#if loading}
 							<div
@@ -124,20 +151,26 @@
 				</div>
 			</form>
 
-			<div class="mt-6">
+			<div class="mt-6" in:fly={{ y: 20, duration: 600, delay: 1100, easing: cubicOut }}>
 				<div class="relative">
 					<div class="absolute inset-0 flex items-center">
-						<div class="w-full border-t border-gray-300"></div>
+						<div
+							class="w-full border-t border-gray-300"
+							in:scale={{ start: 0.8, duration: 500, delay: 1200, easing: cubicOut }}
+						></div>
 					</div>
 					<div class="relative flex justify-center text-sm">
-						<span class="bg-white px-2 text-gray-500"> Don't have an account? </span>
+						<span class="bg-white px-2 text-gray-500" in:fade={{ duration: 400, delay: 1300 }}>
+							Don't have an account?
+						</span>
 					</div>
 				</div>
 
-				<div class="mt-6">
+				<div class="mt-6" in:fly={{ y: 15, duration: 500, delay: 1400, easing: cubicOut }}>
 					<a
 						href="/auth/register"
 						class="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+						in:scale={{ start: 0.98, duration: 600, delay: 1500, easing: backOut }}
 					>
 						Register
 					</a>

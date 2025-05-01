@@ -5,6 +5,8 @@
 	import CourtFilter from './CourtFilter.svelte';
 	import JudgeFilter from './JudgeFilter.svelte';
 	import LegalFilter from './LegalFilter.svelte';
+	import { fade, fly, slide, scale } from 'svelte/transition';
+	import { cubicOut, quintOut } from 'svelte/easing';
 
 	export let searchParams: SearchParams;
 	export let isLoading: boolean = false;
@@ -79,14 +81,23 @@
 	}
 </script>
 
-<div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+<div
+	class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm"
+	in:fly={{ y: 15, duration: 600, easing: cubicOut }}
+>
 	<!-- Search Form Header -->
-	<div class="flex items-center justify-between px-5 pb-3 pt-5">
-		<h2 class="text-lg font-semibold text-gray-800">Search</h2>
+	<div
+		class="flex items-center justify-between px-5 pb-3 pt-5"
+		in:fly={{ y: -10, duration: 500, delay: 100, easing: cubicOut }}
+	>
+		<h2 class="text-lg font-semibold text-gray-800" in:slide={{ duration: 500, delay: 200 }}>
+			Search
+		</h2>
 		<button
 			type="button"
 			class="flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
 			on:click={toggleSearchHelp}
+			in:scale={{ start: 0.95, duration: 500, delay: 300, easing: cubicOut }}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -108,32 +119,28 @@
 
 	<!-- Search Help Panel -->
 	{#if showSearchHelp}
-		<div class="mx-5 mb-4 rounded-lg bg-blue-50 p-4 text-xs">
-			<h3 class="mb-2 font-medium text-blue-800">Search Operators</h3>
+		<div
+			class="mx-5 mb-4 rounded-lg bg-blue-50 p-4 text-xs"
+			transition:slide={{ duration: 300, easing: cubicOut }}
+		>
+			<h3 class="mb-2 font-medium text-blue-800" in:fade={{ duration: 400 }}>Search Operators</h3>
 			<div class="grid grid-cols-2 gap-2">
-				<div class="rounded border border-blue-100 bg-white p-2">
-					<code class="text-blue-700">"exact phrase"</code>
-					<span class="mt-1 block text-gray-600">Exact match</span>
-				</div>
-				<div class="rounded border border-blue-100 bg-white p-2">
-					<code class="text-blue-700">term1 OR term2</code>
-					<span class="mt-1 block text-gray-600">Either term</span>
-				</div>
-				<div class="rounded border border-blue-100 bg-white p-2">
-					<code class="text-blue-700">+required</code>
-					<span class="mt-1 block text-gray-600">Must include</span>
-				</div>
-				<div class="rounded border border-blue-100 bg-white p-2">
-					<code class="text-blue-700">-excluded</code>
-					<span class="mt-1 block text-gray-600">Must exclude</span>
-				</div>
+				{#each [{ code: '"exact phrase"', desc: 'Exact match' }, { code: 'term1 OR term2', desc: 'Either term' }, { code: '+required', desc: 'Must include' }, { code: '-excluded', desc: 'Must exclude' }] as tip, i}
+					<div
+						class="rounded border border-blue-100 bg-white p-2"
+						in:fly={{ y: 10, duration: 400, delay: 100 + i * 100, easing: cubicOut }}
+					>
+						<code class="text-blue-700">{tip.code}</code>
+						<span class="mt-1 block text-gray-600">{tip.desc}</span>
+					</div>
+				{/each}
 			</div>
 		</div>
 	{/if}
 
 	<form on:submit={handleSearch} class="px-5 pb-5">
 		<!-- Text Search -->
-		<div class="mb-4">
+		<div class="mb-4" in:fly={{ y: 10, duration: 500, delay: 250, easing: cubicOut }}>
 			<div class="relative">
 				<input
 					type="text"
@@ -163,7 +170,7 @@
 
 		<!-- Primary Filters -->
 		<div class="mb-4 space-y-3">
-			<div>
+			<div in:fly={{ y: 10, duration: 500, delay: 300, easing: cubicOut }}>
 				<label for="doc_type" class="mb-1 block text-xs font-medium text-gray-700"
 					>Document Type</label
 				>
@@ -185,14 +192,14 @@
 				</select>
 			</div>
 
-			<div>
+			<div in:fly={{ y: 10, duration: 500, delay: 350, easing: cubicOut }}>
 				<label for="legal_tags" class="mb-1 block text-xs font-medium text-gray-700">Tags</label>
 				<select
 					id="legal_tags"
 					bind:value={searchParams.legal_tags}
 					class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
 				>
-					<option value="">All Tags</option>
+					<option value="">All Legal Tags</option>
 					{#if fieldOptions.legal_tags}
 						{#each fieldOptions.legal_tags as tag}
 							<option value={tag}>{tag}</option>
@@ -201,7 +208,7 @@
 				</select>
 			</div>
 
-			<div>
+			<div in:fly={{ y: 10, duration: 500, delay: 400, easing: cubicOut }}>
 				<label for="case_number" class="mb-1 block text-xs font-medium text-gray-700"
 					>Case Number</label
 				>
@@ -225,6 +232,7 @@
 			type="button"
 			on:click={toggleAdvancedFilters}
 			class="mb-4 flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
+			in:scale={{ start: 0.95, duration: 500, delay: 450, easing: cubicOut }}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -243,8 +251,11 @@
 
 		<!-- Advanced Filters -->
 		{#if showAdvancedFilters}
-			<div class="mb-4 space-y-3 border-t border-gray-100 pt-2">
-				<div>
+			<div
+				class="mb-4 space-y-3 border-t border-gray-100 pt-2"
+				transition:slide={{ duration: 400, easing: cubicOut }}
+			>
+				<div in:fly={{ y: 10, duration: 500, delay: 100, easing: cubicOut }}>
 					<label for="case_name" class="mb-1 block text-xs font-medium text-gray-700"
 						>Case Name</label
 					>
@@ -258,29 +269,36 @@
 				</div>
 
 				<!-- Judge Filter Component -->
-				<JudgeFilter
-					selectedJudges={searchParams.judge}
-					allJudgeOptions={fieldOptions.judge || []}
-					on:add={handleAddJudge}
-					on:remove={handleRemoveJudge}
-				/>
+				<div in:fly={{ y: 10, duration: 500, delay: 150, easing: cubicOut }}>
+					<JudgeFilter
+						selectedJudges={searchParams.judge}
+						allJudgeOptions={fieldOptions.judge || []}
+						on:add={handleAddJudge}
+						on:remove={handleRemoveJudge}
+					/>
+				</div>
 
 				<!-- Court Filter Component -->
-				<CourtFilter
-					selectedCourts={searchParams.court}
-					allCourtOptions={fieldOptions.court || []}
-					on:add={handleAddCourt}
-					on:remove={handleRemoveCourt}
-				/>
+				<div in:fly={{ y: 10, duration: 500, delay: 200, easing: cubicOut }}>
+					<CourtFilter
+						selectedCourts={searchParams.court}
+						allCourtOptions={fieldOptions.court || []}
+						on:add={handleAddCourt}
+						on:remove={handleRemoveCourt}
+					/>
+				</div>
 
-				<LegalFilter
-					selectedTags={searchParams.legal_tags}
-					allTagsOptions={fieldOptions.legal_tags || []}
-					on:add={handleAddTag}
-					on:remove={handleRemoveTag}
-				/>
+				<div in:fly={{ y: 10, duration: 500, delay: 250, easing: cubicOut }}>
+					<LegalFilter
+						selectedTags={searchParams.legal_tags}
+						allTagsOptions={fieldOptions.legal_tags || []}
+						on:add={handleAddTag}
+						on:remove={handleRemoveTag}
+					/>
+				</div>
+
 				<!-- Date Range -->
-				<div>
+				<div in:fly={{ y: 10, duration: 500, delay: 300, easing: cubicOut }}>
 					<label class="mb-1 block text-xs font-medium text-gray-700">Date Range</label>
 					<div class="grid grid-cols-2 gap-2">
 						<div>
@@ -303,7 +321,7 @@
 				</div>
 
 				<div class="grid grid-cols-2 gap-2">
-					<div>
+					<div in:fly={{ y: 10, duration: 500, delay: 350, easing: cubicOut }}>
 						<label for="author" class="mb-1 block text-xs font-medium text-gray-700">Author</label>
 						<input
 							type="text"
@@ -314,7 +332,7 @@
 						/>
 					</div>
 
-					<div>
+					<div in:fly={{ y: 10, duration: 500, delay: 400, easing: cubicOut }}>
 						<label for="status" class="mb-1 block text-xs font-medium text-gray-700">Status</label>
 						<select
 							id="status"
@@ -335,7 +353,7 @@
 
 		<!-- Options -->
 		<div class="mb-5 grid grid-cols-2 gap-2">
-			<div>
+			<div in:fly={{ y: 10, duration: 500, delay: 500, easing: cubicOut }}>
 				<label for="sort_by" class="mb-1 block text-xs font-medium text-gray-700">Sort By</label>
 				<select
 					bind:value={searchParams.sort_by}
@@ -348,7 +366,7 @@
 				</select>
 			</div>
 
-			<div>
+			<div in:fly={{ y: 10, duration: 500, delay: 550, easing: cubicOut }}>
 				<label for="sort_order" class="mb-1 block text-xs font-medium text-gray-700">Order</label>
 				<select
 					bind:value={searchParams.sort_order}
@@ -361,11 +379,12 @@
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex gap-2">
+		<div class="flex gap-2" in:fly={{ y: 10, duration: 500, delay: 600, easing: cubicOut }}>
 			<button
 				type="submit"
 				class="flex flex-1 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 				disabled={isLoading}
+				in:scale={{ start: 0.98, duration: 600, delay: 650, easing: cubicOut }}
 			>
 				{#if isLoading}
 					<svg
@@ -393,6 +412,7 @@
 				on:click={resetFilters}
 				class="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
 				disabled={isLoading}
+				in:scale={{ start: 0.98, duration: 600, delay: 700, easing: cubicOut }}
 			>
 				Reset
 			</button>

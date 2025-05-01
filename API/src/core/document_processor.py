@@ -166,13 +166,15 @@ class DocumentProcessor:
         """
         try:
             # Generate file hash first to check if we can skip
+            print(f"Processing file: {file_path}")
             file_hash = self.file_processor.get_file_hash(file_path)
-            
+
             if not file_hash:
                 logger.error(f"Could not generate hash for {file_path}")
                 return None
                 
             if self.skip_existing and self.es_handler.document_exists(file_hash):
+                print(f"Document already exists in Elasticsearch: {file_path}")
                 logger.info(f"Skipping existing document: {file_path}")
                 self.stats["skipped"] += 1
                 return None
@@ -192,6 +194,7 @@ class DocumentProcessor:
             metadata_dict = {}
             doc_type = "unknown"
             
+            print(f"Extracted text from {file_path}: {text[:100]}...")  # Print first 100 characters of text
             if self.use_llm_classification and hasattr(self, 'openai_client'):
                 try:
                     # Use LLM to classify document and extract metadata

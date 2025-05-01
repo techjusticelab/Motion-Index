@@ -73,7 +73,9 @@
 				searchParams.date_range.start = documentStats.date_range.oldest;
 				searchParams.date_range.end = documentStats.date_range.newest;
 			}
-
+			if (documentStats?.total_documents) {
+				totalPages = Math.min(searchParams.size, documentStats.total_documents);
+			}
 			// Fetch all field options
 			fieldOptions = await api.getAllFieldOptions();
 			console.log('Field options:', fieldOptions);
@@ -110,7 +112,7 @@
 			searchResults = await api.searchDocuments(cleanParams);
 			console.log('Search results:', searchResults);
 			totalPages = Math.ceil(searchResults.total / searchParams.size);
-
+			console.log('Total pages:', totalPages);
 			// Switch to results tab if we have results and on mobile
 			if (searchResults.total > 0 && window.innerWidth < 1024) {
 				activeTab = 'results';
@@ -141,6 +143,7 @@
 	function goToPage(page: number) {
 		if (page < 1 || page > totalPages) return;
 		searchParams.page = page;
+		console.log(searchParams);
 		console.log('Going to page:', page);
 		performSearch();
 	}
@@ -180,16 +183,16 @@
 			</div>
 
 			{#if documentStats}
-				<div class="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:w-auto">
+				<div class="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:w-auto">
 					<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
 						<p class="text-xs text-blue-100">Documents</p>
 						<p class="text-xl font-semibold text-white">{documentStats.total_documents}</p>
 					</div>
 
-					<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
+					<!-- <div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
 						<p class="text-xs text-blue-100">Types</p>
 						<p class="text-xl font-semibold text-white">{Object.keys(documentTypes).length}</p>
-					</div>
+					</div> -->
 
 					{#if documentStats.date_range}
 						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
