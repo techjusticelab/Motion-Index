@@ -84,10 +84,10 @@ class FileProcessor:
         # Check if the extension is in the list of supported formats by textract
         # This avoids attempting to process files that textract doesn't support
         textract_supported = [
-            '.csv', '.doc', '.docx', '.eml', '.epub', '.gif', '.htm', '.html',
+            '.csv','.eml', '.epub', '.gif', '.htm', '.html',
             '.jpeg', '.jpg', '.json', '.log', '.mp3', '.msg', '.odt', '.ogg',
             '.pdf', '.png', '.pptx', '.ps', '.psv', '.rtf', '.tab', '.tff',
-            '.tif', '.tiff', '.tsv', '.txt', '.wav', 'wdp', '.xls', '.xlsx'
+            '.tif', '.tiff', '.tsv', '.txt', '.wav', '.xls', '.xlsx'
         ]
         
         # WPD files are handled separately by converting to PDF first
