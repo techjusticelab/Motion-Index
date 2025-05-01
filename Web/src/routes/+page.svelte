@@ -36,6 +36,7 @@
 			end: ''
 		},
 		legal_tags: [],
+		legal_tags_match_all: false, // Default to OR behavior (match any tag)
 		size: 10,
 		sort_by: 'created_at',
 		sort_order: 'desc',
@@ -164,6 +165,8 @@
 				start: documentStats?.date_range?.oldest || '',
 				end: documentStats?.date_range?.newest || ''
 			},
+			legal_tags: [],
+			legal_tags_match_all: false, // Reset to OR behavior
 			size: 10,
 			sort_by: 'created_at',
 			sort_order: 'desc',

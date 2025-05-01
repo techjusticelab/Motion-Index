@@ -89,6 +89,7 @@ class SearchRequest(BaseModel):
     author: Optional[str] = None
     status: Optional[str] = None
     legal_tags: Optional[Union[str, List[str]]] = None
+    legal_tags_match_all: bool = Field(default=False, description="Whether to match all tags (AND) or any tag (OR)")
     date_range: Optional[Dict[str, str]] = None
     size: int = Field(default=10, ge=1, le=100)
     sort_by: Optional[str] = None
@@ -155,7 +156,8 @@ async def search_documents(search_request: SearchRequest):
             sort_by=search_request.sort_by,
             sort_order=search_request.sort_order,
             use_fuzzy=search_request.use_fuzzy,
-            from_value=from_value
+            from_value=from_value,
+            legal_tags_match_all=search_request.legal_tags_match_all
         )
         return results
     except Exception as e:
@@ -248,7 +250,9 @@ async def get_all_field_options():
         result = {}
         for field in fields:
             # Use a larger size to get more options
-            options = es_handler.get_metadata_field_values(field, size=100)
+            # Use a much larger size for legal_tags to show all available options
+            size = 10000
+            options = es_handler.get_metadata_field_values(field, size=size)
             result[field] = options
             
         return result
