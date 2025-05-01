@@ -4,6 +4,7 @@
 	import type { SearchParams } from '../../../utils/search_types';
 	import CourtFilter from './CourtFilter.svelte';
 	import JudgeFilter from './JudgeFilter.svelte';
+	import LegalFilter from './LegalFilter.svelte';
 
 	export let searchParams: SearchParams;
 	export let isLoading: boolean = false;
@@ -61,6 +62,17 @@
 		}
 	}
 
+	function handleRemoveTag(event: CustomEvent<string>) {
+		const tag = event.detail;
+		searchParams.legal_tags = searchParams.legal_tags.filter((t) => t !== tag);
+	}
+
+	function handleAddTag(event: CustomEvent<string>) {
+		const tag = event.detail;
+		if (!searchParams.legal_tags.includes(tag)) {
+			searchParams.legal_tags = [...searchParams.legal_tags, tag];
+		}
+	}
 	function handleRemoveJudge(event: CustomEvent<string>) {
 		const judge = event.detail;
 		searchParams.judge = searchParams.judge.filter((j) => j !== judge);
@@ -174,6 +186,22 @@
 			</div>
 
 			<div>
+				<label for="legal_tags" class="mb-1 block text-xs font-medium text-gray-700">Tags</label>
+				<select
+					id="legal_tags"
+					bind:value={searchParams.legal_tags}
+					class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				>
+					<option value="">All Tags</option>
+					{#if fieldOptions.legal_tags}
+						{#each fieldOptions.legal_tags as tag}
+							<option value={tag}>{tag}</option>
+						{/each}
+					{/if}
+				</select>
+			</div>
+
+			<div>
 				<label for="case_number" class="mb-1 block text-xs font-medium text-gray-700"
 					>Case Number</label
 				>
@@ -245,6 +273,12 @@
 					on:remove={handleRemoveCourt}
 				/>
 
+				<LegalFilter
+					selectedTags={searchParams.legal_tags}
+					allTagsOptions={fieldOptions.legal_tags || []}
+					on:add={handleAddTag}
+					on:remove={handleRemoveTag}
+				/>
 				<!-- Date Range -->
 				<div>
 					<label class="mb-1 block text-xs font-medium text-gray-700">Date Range</label>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'http://172.19.0.2:8000';
-// const API_URL = 'http://0.0.0.0:8000'
+// const API_URL = 'http://172.19.0.2:8000';
+const API_URL = 'http://0.0.0.0:8000'
 
 // Define types
 export interface SearchParams {
@@ -17,6 +17,7 @@ export interface SearchParams {
     start?: string;
     end?: string;
   };
+  tags?: string[];
   size?: number;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
@@ -40,6 +41,7 @@ export interface Document {
     case_number?: string;
     author?: string;
     judge?: string;
+    legal_tags?: string[];
     court?: string;
   };
   created_at: string;
@@ -82,6 +84,15 @@ export async function getDocumentTypes(): Promise<Record<string, number>> {
   }
 }
 
+export async function getLegalTags(): Promise<string[]> {
+  try {
+    const response = await axios.get(`${API_URL}/legal-tags`);
+    return response.data;
+  } catch (error) {
+    console.error('Error getting legal tags:', error);
+    throw error;
+  }
+}
 export async function getMetadataFieldValues(field: string, prefix?: string, size: number = 20): Promise<string[]> {
   try {
     const response = await axios.post(`${API_URL}/metadata-field-values`, {

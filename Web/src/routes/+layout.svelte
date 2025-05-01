@@ -13,13 +13,6 @@
 			isLoading.set(false);
 		}
 	});
-
-	// Handle authentication state
-	$effect(() => {
-		if ($page.data && !$page.data.session && !window.location.pathname.startsWith('/auth')) {
-			window.location.href = `/auth/login?redirectTo=${encodeURIComponent(window.location.pathname)}`;
-		}
-	});
 </script>
 
 <div class="min-h-screen bg-gray-50">

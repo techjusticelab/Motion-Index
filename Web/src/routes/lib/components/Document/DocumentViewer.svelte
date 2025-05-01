@@ -1,15 +1,17 @@
 <!-- DocumentViewer.svelte -->
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, onMount } from 'svelte';
 	import { formatDate } from '../../../utils/utils';
 	import type { Document, SearchResponse } from '../../../utils/search_types';
 	import S3FileViewer from './s3viewer.svelte'; // Update this path
+	import { getSignedS3Url } from '../../services/s3';
 
 	export let docData: Document | null = null;
 	export let isOpen: boolean = false;
 
 	let isLoading = true;
 	let errorMessage = '';
+	let url = '';
 
 	const dispatch = createEventDispatcher<{
 		close: void;
@@ -30,7 +32,16 @@
 	function closeViewer() {
 		dispatch('close');
 	}
-
+	onMount(() => {
+		if (docData) {
+			downloadFile();
+		}
+	});
+	async function downloadFile() {
+		if (docData) {
+			url = await getSignedS3Url(docData.s3_uri);
+		}
+	}
 	// Handle S3FileViewer events
 	function handleViewerLoaded() {
 		isLoading = false;
@@ -45,7 +56,7 @@
 </script>
 
 {#if isOpen && docData}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+	<div class="opac opac fixed inset-0 z-50 flex items-center justify-center p-4 shadow">
 		<div
 			class="relative flex h-[90vh] w-[90vw] max-w-6xl overflow-hidden rounded-xl bg-white shadow-2xl"
 		>
@@ -72,6 +83,12 @@
 					<h3 class="text-sm font-medium text-gray-700">Document Details</h3>
 
 					<div class="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+						<!-- Document Name - always displayed -->
+						<div>
+							<p class="text-xs text-gray-500">Document Name</p>
+							<p class="text-sm font-medium text-gray-800">{docData.metadata.document_name}</p>
+						</div>
+
 						{#if docData.metadata.case_number}
 							<div>
 								<p class="text-xs text-gray-500">Case Number</p>
@@ -100,21 +117,67 @@
 							</div>
 						{/if}
 
-						<div>
-							<p class="text-xs text-gray-500">Date</p>
-							<p class="text-sm font-medium text-gray-800">
-								{formatDate(docData.metadata.timestamp || docData.created_at)}
-							</p>
-						</div>
+						{#if docData.metadata.timestamp}
+							<div>
+								<p class="text-xs text-gray-500">Date</p>
+								<p class="text-sm font-medium text-gray-800">
+									{formatDate(docData.metadata.timestamp)}
+								</p>
+							</div>
+						{:else}
+							<div>
+								<p class="text-xs text-gray-500">Created Date</p>
+								<p class="text-sm font-medium text-gray-800">
+									{formatDate(docData.created_at)}
+								</p>
+							</div>
+						{/if}
+
+						{#if docData.metadata.subject}
+							<div>
+								<p class="text-xs text-gray-500">Subject</p>
+								<p class="text-sm font-medium text-gray-800">{docData.metadata.subject}</p>
+							</div>
+						{/if}
+
+						{#if docData.metadata.status}
+							<div>
+								<p class="text-xs text-gray-500">Status</p>
+								<p class="text-sm font-medium text-gray-800">{docData.metadata.status}</p>
+							</div>
+						{/if}
+
+						{#if docData.metadata.author}
+							<div>
+								<p class="text-xs text-gray-500">Author</p>
+								<p class="text-sm font-medium text-gray-800">{docData.metadata.author}</p>
+							</div>
+						{/if}
+
+						{#if docData.metadata.legal_tags && docData.metadata.legal_tags.length > 0}
+							<div>
+								<p class="text-xs text-gray-500">Legal Tags</p>
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each docData.metadata.legal_tags as tag}
+										<span
+											class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800"
+										>
+											{tag}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Download button -->
 					<a
-						href={docData.s3_uri}
+						href={url}
 						download={docData.file_name}
 						class="mt-6 flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
 						target="_blank"
 						rel="noopener noreferrer"
+						on:click={downloadFile}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -165,12 +228,11 @@
 				<div class="h-full w-full overflow-auto bg-gray-100">
 					{#if canViewInIframe(docData.file_name)}
 						<S3FileViewer
-							s3Uri="s3://cpda-documents/memorandum/2025/04/30/245usen_aecb7e41.wpd"
+							s3Uri={docData.s3_uri}
 							height="100%"
 							width="100%"
 							on:loaded={handleViewerLoaded}
 							on:error={handleViewerError}
-							sandbox="allow-same-origin allow-scripts"
 						/>
 					{:else}
 						<div class="flex h-full w-full items-center justify-center p-6">
@@ -240,3 +302,9 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.opac {
+		background-color: rgba(0, 0, 0, 0.5);
+	}
+</style>

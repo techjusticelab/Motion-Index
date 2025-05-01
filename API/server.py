@@ -148,6 +148,16 @@ async def search_documents(search_request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/legal-tags")
+async def get_legal_tags():
+    """
+    Get a list of all legal types and their counts.
+    """
+    try:
+        return es_handler.get_legal_tags()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.get("/document-types")
 async def get_document_types():
     """
@@ -195,6 +205,7 @@ async def get_metadata_fields():
             {"id": "metadata.case_name", "name": "Case Name", "type": "string"},
             {"id": "metadata.judge", "name": "Judge", "type": "string"},
             {"id": "metadata.court", "name": "Court", "type": "string"},
+            {"id": "metadata.legal_tags", "name": "Legal Tags", "type": "string"},
             {"id": "metadata.author", "name": "Author", "type": "string"},
             {"id": "metadata.status", "name": "Status", "type": "string"},
             {"id": "created_at", "name": "Date", "type": "date"}
@@ -215,6 +226,7 @@ async def get_all_field_options():
             "case_number",
             "judge",
             "court",
+            "legal_tags",
             "status"
         ]
         
@@ -290,6 +302,8 @@ async def update_document_metadata(request: MetadataUpdateRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating metadata: {str(e)}")
+
+
 
 if __name__ == "__main__":
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)

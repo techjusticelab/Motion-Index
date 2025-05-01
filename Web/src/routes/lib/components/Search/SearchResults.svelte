@@ -86,14 +86,23 @@
 									{document.metadata.document_name || document.file_name}
 								</h3>
 
-								<h2 class="text-sm font-medium text-gray-600">
-									<b>Summary: </b>
-									{document.metadata.subject}
-								</h2>
+								{#if document.metadata.subject}
+									<h2 class="text-sm font-medium text-gray-600">
+										<b>Summary: </b>
+										{document.metadata.subject}
+									</h2>
+								{/if}
 							</div>
-							<span class="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-								{document.doc_type}
-							</span>
+							<div class="flex flex-wrap gap-2">
+								<span class="rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+									{document.doc_type}
+								</span>
+								{#if document.metadata.status}
+									<span class="rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+										{document.metadata.status}
+									</span>
+								{/if}
+							</div>
 						</div>
 
 						{#if document.highlight?.text}
@@ -108,7 +117,7 @@
 							</p>
 						{/if}
 
-						<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+						<div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-3">
 							{#if document.metadata.case_number}
 								<div class="flex items-center">
 									<span class="text-gray-500">Case #:</span>
@@ -142,13 +151,45 @@
 								</div>
 							{/if}
 
-							<div class="flex items-center">
-								<span class="text-gray-500">Date:</span>
-								<span class="ml-1 font-medium text-gray-900"
-									>{formatDate(document.metadata.timestamp || document.created_at)}</span
-								>
-							</div>
+							{#if document.metadata.timestamp}
+								<div class="flex items-center">
+									<span class="text-gray-500">Date:</span>
+									<span class="ml-1 font-medium text-gray-900"
+										>{formatDate(document.metadata.timestamp)}</span
+									>
+								</div>
+							{:else}
+								<div class="flex items-center">
+									<span class="text-gray-500">Date:</span>
+									<span class="ml-1 font-medium text-gray-900"
+										>{formatDate(document.created_at)}</span
+									>
+								</div>
+							{/if}
+
+							{#if document.metadata.author}
+								<div class="flex items-center">
+									<span class="text-gray-500">Author:</span>
+									<span class="ml-1 truncate font-medium text-gray-900"
+										>{document.metadata.author}</span
+									>
+								</div>
+							{/if}
 						</div>
+
+						{#if document.metadata.legal_tags && document.metadata.legal_tags.length > 0}
+							<div class="mt-2">
+								<div class="flex flex-wrap gap-1">
+									{#each document.metadata.legal_tags as tag}
+										<span
+											class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800"
+										>
+											{tag}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>

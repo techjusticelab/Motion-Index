@@ -34,6 +34,7 @@
 			start: '',
 			end: ''
 		},
+		legal_tags: [],
 		size: 10,
 		sort_by: 'created_at',
 		sort_order: 'desc',
@@ -48,7 +49,6 @@
 	let metadataFields: MetadataField[] = [];
 	let documentStats: DocumentStats | null = null;
 	let fieldOptions: Record<string, string[]> = {};
-
 	// UI state
 	let activeTab = 'search'; // 'search' or 'results'
 
@@ -62,7 +62,6 @@
 
 			// Fetch document types for filter dropdown
 			documentTypes = await api.getDocumentTypes();
-
 			// Fetch metadata fields
 			const fieldsResponse = await api.getMetadataFields();
 			metadataFields = fieldsResponse.fields;
@@ -77,6 +76,7 @@
 
 			// Fetch all field options
 			fieldOptions = await api.getAllFieldOptions();
+			console.log('Field options:', fieldOptions);
 
 			// Initial search
 			await performSearch();
@@ -141,6 +141,7 @@
 	function goToPage(page: number) {
 		if (page < 1 || page > totalPages) return;
 		searchParams.page = page;
+		console.log('Going to page:', page);
 		performSearch();
 	}
 

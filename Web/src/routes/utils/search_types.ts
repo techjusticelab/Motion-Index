@@ -12,6 +12,7 @@ export interface SearchParams {
         start: string;
         end: string;
     };
+    legal_tags: string[];
     size: number;
     sort_by: string;
     sort_order: 'asc' | 'desc';
@@ -30,6 +31,7 @@ export interface Document {
         subject?: string;
         status?: string;
         author?: string;
+        legal_tags?: string[];
     };
     file_name: string;
     s3_uri: string;

@@ -1,5 +1,5 @@
 // api.ts
-import type { SearchParams, SearchResponse, MetadataField, DocumentStats } from './types';
+import type { SearchParams, SearchResponse, MetadataField, DocumentStats } from  "../../utils/search_types"
 
 export async function getDocumentTypes(): Promise<Record<string, number>> {
     const response = await fetch('/api/document-types');

@@ -492,6 +492,11 @@ class ElasticsearchHandler:
                             query = create_precise_field_query(field, value)
                             if query:
                                 filter_clauses.append(query)
+                        elif field == 'legal_tags':
+                            # Use terms query for legal tags (multiple selections)
+                            filter_clauses.append({
+                                "terms": {f"metadata.{field}.keyword": value}
+                            })
                         # Handle other field types appropriately
                         elif isinstance(value, list):
                             # For list values, use terms query (OR condition)
@@ -597,6 +602,38 @@ class ElasticsearchHandler:
                 "from": from_value
             }
     
+    def get_legal_tags(self) -> List[str]:
+        """
+        Get a list of all legal tags (categories) used in the documents.
+        
+        Returns:
+            List of unique legal tags
+        """
+        try:
+            response = self.es.search(
+                index=self.index_name,
+                body={
+                    "size": 0,
+                    "aggs": {
+                        "legal_tags": {
+                            "terms": {
+                                "field": "metadata.legal_tags.keyword",
+                                "size": 20  # Get up to 100 different categories
+                            }
+                        }
+                    }
+                }
+            )
+            
+            tags = []
+            for bucket in response.get("aggregations", {}).get("legal_tags", {}).get("buckets", []):
+                tags.append(bucket["key"])
+                
+            return tags
+        except Exception as e:
+            logger.error(f"Error getting legal tags: {e}")
+            return []
+        
     def get_document_types(self) -> Dict[str, int]:
         """
         Get a list of all document types and their counts.

@@ -71,7 +71,6 @@
 			{height}
 			on:load={handleLoad}
 			on:error={handleError}
-			sandbox="allow-same-origin allow-scripts allow-forms"
 			class="h-full w-full"
 		></iframe>
 	{/if}
