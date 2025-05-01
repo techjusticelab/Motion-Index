@@ -2,6 +2,8 @@
 	import { page } from '$app/stores';
 	import { user, isLoading } from './lib/stores/auth';
 	import { onMount } from 'svelte';
+	import { fade, fly, slide, scale } from 'svelte/transition';
+	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
 	import '../app.css';
 
 	let { children } = $props();
@@ -13,41 +15,72 @@
 			isLoading.set(false);
 		}
 	});
+
+	// Flag to control animations after initial page load
+	let isInitialLoad = true;
+
+	onMount(() => {
+		// Set initial load to false after the first render
+		setTimeout(() => {
+			isInitialLoad = false;
+		}, 100);
+	});
 </script>
 
-<div class="min-h-screen bg-gray-50">
-	<header class="bg-indigo-600 shadow-md">
-		<div class="container mx-auto px-4 py-4">
+<div class="min-h-screen bg-gray-50" in:fade={{ duration: 300, easing: cubicOut }}>
+	<header class="bg-indigo-600 shadow-md" in:fly={{ y: -20, duration: 700, easing: cubicOut }}>
+		<div class="container mx-auto px-4 py-4" in:fade={{ duration: 500, delay: 100 }}>
 			<div class="flex flex-col items-center justify-between sm:flex-row">
-				<a href="/" class="text-2xl font-bold text-white">Motion Index</a>
-				<nav class="mt-3 sm:mt-0">
+				<a
+					href="/"
+					class="text-2xl font-bold text-white transition hover:text-indigo-200"
+					in:scale={{ start: 0.9, duration: 600, delay: 200, easing: elasticOut }}>Motion Index</a
+				>
+				<nav class="mt-3 sm:mt-0" in:fly={{ y: -10, duration: 500, delay: 300, easing: cubicOut }}>
 					<ul class="flex space-x-6 text-white">
-						<li><a href="/" class="transition hover:text-indigo-200">Search</a></li>
-						<li><a href="/upload" class="transition hover:text-indigo-200">Upload</a></li>
-
-						<li>
-							<a href="/account" class="transition hover:text-indigo-200"> Account</a>
-						</li>
-						<li>
-							<a
-								href="/help"
-								class="rounded bg-white p-2 text-indigo-600 transition hover:bg-indigo-800 hover:text-white"
-								>Help</a
+						{#each [{ href: '/', text: 'Search', isSpecial: false }, { href: '/upload', text: 'Upload', isSpecial: false }, { href: '/account', text: 'Account', isSpecial: false }, { href: '/help', text: 'Help', isSpecial: true }] as item, i}
+							<li
+								in:fly={{
+									x: 10,
+									y: -5,
+									duration: 500,
+									delay: 400 + i * 100,
+									easing: cubicOut
+								}}
 							>
-						</li>
+								{#if item.isSpecial}
+									<a
+										href={item.href}
+										class="rounded bg-white p-2 font-bold text-indigo-600 transition hover:bg-indigo-800 hover:text-white"
+										in:scale={{ start: 0.95, duration: 600, delay: 400 + i * 100, easing: backOut }}
+										>{item.text}</a
+									>
+								{:else}
+									<a href={item.href} class="transition hover:text-indigo-200">{item.text}</a>
+								{/if}
+							</li>
+						{/each}
 					</ul>
 				</nav>
 			</div>
 		</div>
 	</header>
 
-	<main>
+	<main in:fade={{ duration: 600, delay: 400 }}>
 		{@render children()}
 	</main>
 
-	<footer class="mt-12 border-t bg-gray-100">
-		<div class="container mx-auto px-4 py-6 text-left text-sm text-gray-600">
-			<p>&copy; 2025 Berkeley Technology and Justice Lab. All rights reserved.</p>
+	<footer
+		class="mt-12 border-t bg-gray-100"
+		in:fly={{ y: 20, duration: 600, delay: 500, easing: cubicOut }}
+	>
+		<div
+			class="container mx-auto px-4 py-6 text-left text-sm text-gray-600"
+			in:fade={{ duration: 500, delay: 600 }}
+		>
+			<p in:slide={{ duration: 500, delay: 700 }}>
+				&copy; 2025 Berkeley Technology and Justice Lab. All rights reserved.
+			</p>
 		</div>
 	</footer>
 </div>

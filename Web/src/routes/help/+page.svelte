@@ -6,6 +6,7 @@
 <div
 	class="min-h-screen bg-gray-50 px-4 py-12 sm:px-6 lg:px-8"
 	in:fade={{ duration: 600, easing: cubicOut }}
+	out:fade
 >
 	<div class="mx-auto max-w-3xl" in:fly={{ y: 20, duration: 700, easing: cubicOut }}>
 		<div class="text-center" in:fly={{ y: -10, duration: 700, delay: 200, easing: cubicOut }}>

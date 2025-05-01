@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // const API_URL = 'http://172.19.0.2:8000';
-const API_URL = 'http://172.20.0.2:8000';
-// const API_URL = 'http://0.0.0.0:8000'
+// const API_URL = 'http://172.20.0.2:8000';
+const API_URL = 'http://0.0.0.0:8000'
 
 // Define types
 export interface SearchParams {

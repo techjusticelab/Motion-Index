@@ -57,19 +57,20 @@
 	}
 </script>
 
+<!-- TODO: ADD SIMILAR FEATURES HERE SO WHEN YOU CLICK ON METADATA IT WILL AUTO SEARCH FOR SIMILAR SHIT -->
 {#if isOpen && docData}
 	<div
-		class="opac fixed inset-0 z-50 flex items-center justify-center p-4 shadow"
+		class="opac fixed inset-0 z-50 flex justify-center p-4 shadow"
 		in:fade={{ duration: 300, easing: cubicOut }}
 		out:fade={{ duration: 500 }}
 	>
 		<div
-			class="relative flex h-[90vh] w-[95vw] max-w-6xl overflow-hidden text-wrap rounded-xl bg-white shadow-2xl"
+			class="relative flex h-[95vh] w-[95vw] overflow-hidden text-wrap rounded-xl bg-white shadow-2xl"
 			transition:fly={{ y: 20, duration: 800, easing: quintOut }}
 		>
 			<!-- Sidebar with metadata -->
 			<div
-				class="w-2/5 overflow-auto border-r border-gray-200 bg-gray-50 p-6"
+				class="w-1/4 overflow-auto border-r border-gray-200 bg-gray-50 p-6"
 				in:fly={{ x: -20, duration: 800, delay: 300, easing: cubicOut }}
 			>
 				<div class="mb-4">
@@ -198,7 +199,7 @@
 							<a
 								href={url}
 								download={docData.file_name}
-								class="mt-4 flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+								class="mt-4 flex w-full items-center justify-center rounded-lg border-blue-600 bg-white px-4 py-2 text-sm font-medium text-black hover:bg-blue-600 hover:text-white"
 								target="_blank"
 								rel="noopener noreferrer"
 								on:click={downloadFile}
@@ -218,7 +219,7 @@
 										d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
 									/>
 								</svg>
-								Download Original
+								Save File to Case
 							</a>
 						</div>
 						<div>

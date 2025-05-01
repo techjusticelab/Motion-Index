@@ -6,7 +6,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from elasticsearch import Elasticsearch, helpers
 
-from src.models.document import Document
+from src.models.document import Document, Metadata
 from src.utils.constants import (
     ES_DEFAULT_HOST,
     ES_DEFAULT_PORT,
@@ -256,7 +256,7 @@ class ElasticsearchHandler:
             logger.error(f"Error retrieving document: {e}")
             raise
     
-    def update_document_metadata(self, document_id: str, metadata: Dict[str, Any]) -> bool:
+    def update_document_metadata(self, document_id: str, metadata: Metadata) -> bool:
         """
         Update metadata fields for a document.
         
@@ -274,7 +274,9 @@ class ElasticsearchHandler:
                     "metadata": metadata
                 }
             }
-            
+            print(metadata)
+            # If the metadata includes a new file name, update it
+                
             # If the metadata includes document type or category, update those too
             if "doc_type" in metadata:
                 update_body["doc"]["doc_type"] = metadata["doc_type"]
@@ -286,7 +288,14 @@ class ElasticsearchHandler:
             if metadata.get('court'):
                 update_body["doc"]["metadata"]["court"] = normalize_court_name(metadata['court'])
             
-            # Update the document
+            if metadata.get('legal_tags'):
+                # Normalize legal tags if needed
+                update_body["doc"]["metadata"]["legal_tags"] = [tag.strip() for tag in metadata['legal_tags']]
+            if metadata.get('judge'):
+                # Normalize judge name if needed
+                update_body["doc"]["metadata"]["judge"] = metadata['judge'].strip()
+
+            print(f"Updating document {document_id} with metadata: {update_body}")
             self.es.update(
                 index=self.index_name,
                 id=document_id,

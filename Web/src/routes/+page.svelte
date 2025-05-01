@@ -15,6 +15,7 @@
 
 	import SearchResults from './lib/components/Search/SearchResults.svelte';
 	import { formatDate } from './utils/utils';
+	import { fade } from 'svelte/transition';
 
 	// Document popup state
 	let activeDocument: Document | null = null;
@@ -173,7 +174,7 @@
 	}
 </script>
 
-<div class="max-w-7/8 container mx-auto px-4 py-6">
+<div class="max-w-7/8 container mx-auto px-4 py-6" transition:fade>
 	<!-- Header -->
 	<div class="mb-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 p-6 shadow-lg">
 		<div class="flex flex-col items-start justify-between md:flex-row md:items-center">
