@@ -3,8 +3,7 @@
   "builds": [
     { 
       "src": "Web/package.json", 
-      "use": "@vercel/node",
-      "config": { "buildCommand": "cd Web && npm install && npm run build" }
+      "use": "@vercel/node"
     },
     { 
       "src": "API/api/index.py", 
@@ -15,19 +14,8 @@
       }
     }
   ],
-  "routes": [
-    { "src": "/api/document-types", "dest": "/API/api/index.py" },
-    { "src": "/api/search", "dest": "/API/api/index.py" },
-    { "src": "/api/legal-tags", "dest": "/API/api/index.py" },
-    { "src": "/api/metadata-field-values", "dest": "/API/api/index.py" },
-    { "src": "/api/all-field-options", "dest": "/API/api/index.py" },
-    { "src": "/api/document-stats", "dest": "/API/api/index.py" },
-    { "src": "/api/metadata-fields", "dest": "/API/api/index.py" },
-    { "src": "/api/categorise", "dest": "/API/api/index.py" },
-    { "src": "/api/update-metadata", "dest": "/API/api/index.py" },
-    { "src": "/api/health", "dest": "/API/api/index.py" },
-    { "src": "/api/(.*)", "dest": "/API/api/index.py" },
-    { "src": "/(.*)", "dest": "/Web/.svelte-kit/output/server/index.js" }
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/API/api/index.py" }
   ],
   "env": {
     "PYTHONPATH": "./API"
