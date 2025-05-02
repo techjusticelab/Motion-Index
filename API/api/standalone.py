@@ -132,7 +132,24 @@ async def root():
     """Root endpoint to check if the API is running."""
     return {"message": "Motion-Index API is running (standalone version for Vercel)"}
 
-# Vercel serverless function handler
-def handler(request: Request):
-    print(f"Received request: {request.url.path}")
-    return app(request.scope, request.receive, request.send)
+# For Vercel serverless functions
+from http.server import BaseHTTPRequestHandler
+
+class Handler(BaseHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({"message": "API is running"}).encode())
+
+    def do_POST(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({"message": "API is running"}).encode())
+
+# This is the handler that Vercel will use
+handler = app

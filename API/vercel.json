@@ -2,25 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/standalone.py",
+      "src": "api/vercel_handler.py",
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.9",
         "pip": [
-          "--upgrade", "pip",
-          "--requirement", "vercel-minimal-requirements.txt"
-        ],
-        "maxLambdaSize": "15mb"
+          "fastapi==0.109.0",
+          "uvicorn==0.27.0",
+          "pydantic==2.5.0"
+        ]
       }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/standalone.py"
+      "dest": "api/vercel_handler.py"
     }
-  ],
-  "env": {
-    "PYTHONPATH": "."
-  }
+  ]
 }
