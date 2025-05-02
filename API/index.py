@@ -1,11 +1,23 @@
-from fastapi import FastAPI
+import os
+import logging
+import json
+from typing import Dict, List, Optional, Any, Union
+from fastapi import FastAPI, Query, HTTPException, File, UploadFile, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-import json
+from pydantic import BaseModel, Field
 
-app = FastAPI()
+# Setup logging
+logger = logging.getLogger(__name__)
 
-# Add CORS middleware
+# Initialize FastAPI app
+app = FastAPI(
+    title="Motion-Index API",
+    description="API for searching legal documents in Elasticsearch",
+    version="1.0.0"
+)
+
+# Add CORS middleware - allow all origins for Vercel deployment
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,112 +26,174 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Pydantic models for request/response
+class SearchRequest(BaseModel):
+    query: Optional[str] = None
+    doc_type: Optional[str] = None
+    case_number: Optional[str] = None
+    case_name: Optional[str] = None
+    judge: Optional[Union[str, List[str]]] = None
+    court: Optional[Union[str, List[str]]] = None
+    author: Optional[str] = None
+    status: Optional[str] = None
+    legal_tags: Optional[Union[str, List[str]]] = None
+    legal_tags_match_all: bool = Field(default=False, description="Whether to match all tags (AND) or any tag (OR)")
+    date_range: Optional[Dict[str, str]] = None
+    size: int = Field(default=10, ge=1, le=100)
+    sort_by: Optional[str] = None
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$")
+    page: int = Field(default=1)
+    use_fuzzy: bool = Field(default=False, description="Whether to use fuzzy matching for search queries")
+
+class MetadataFieldRequest(BaseModel):
+    field: str
+    prefix: Optional[str] = None
+    size: int = Field(default=20, ge=1, le=100)
+
+# Import real API components
+from src.handlers.elasticsearch_handler import ElasticsearchHandler
+from src.utils.constants import (
+    ES_DEFAULT_HOST,
+    ES_DEFAULT_PORT,
+    ES_DEFAULT_INDEX
+)
+from src.core.document_processor import DocumentProcessor
+
+# Initialize Elasticsearch handler
+es_handler = ElasticsearchHandler(
+    host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
+    port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
+    index_name=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
+    username=os.environ.get("ES_USERNAME"),
+    password=os.environ.get("ES_PASSWORD"),
+    api_key=os.environ.get("ES_API_KEY"),
+    cloud_id=os.environ.get("ES_CLOUD_ID"),
+    use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true"
+)
+
+# Initialize document processor
+processor = DocumentProcessor(
+    # Elasticsearch settings
+    es_username=os.environ.get("ES_USERNAME"),
+    es_password=os.environ.get("ES_PASSWORD"),
+    es_api_key=os.environ.get("ES_API_KEY"),
+    es_host=os.environ.get("ES_HOST", ES_DEFAULT_HOST),
+    es_port=int(os.environ.get("ES_PORT", ES_DEFAULT_PORT)),
+    es_index=os.environ.get("ES_INDEX", ES_DEFAULT_INDEX),
+    es_cloud_id=os.environ.get("ES_CLOUD_ID"),
+    es_use_ssl=os.environ.get("ES_USE_SSL", "True").lower() == "true",
+    # S3 settings
+    s3_bucket=os.environ.get("S3_BUCKET_NAME"),
+    s3_region=os.environ.get("AWS_REGION"),
+    s3_access_key=os.environ.get("AWS_ACCESS_KEY_ID"),
+    s3_secret_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+    # Processing settings
+    max_workers=os.environ.get("MAX_WORKERS", 4),
+    batch_size=os.environ.get("BATCH_SIZE", 100),
+)
+
+logger.info("Using real API components")
+
 @app.get("/document-types")
 async def get_document_types():
-    """Mock endpoint for document types"""
-    return {
-        "Motion": 25,
-        "Brief": 18,
-        "Opinion": 12,
-        "Order": 10,
-        "Complaint": 8
-    }
+    """Get a list of all document types and their counts."""
+    try:
+        return es_handler.get_document_types()
+    except Exception as e:
+        logger.error(f"Error in get_document_types: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/legal-tags")
 async def get_legal_tags():
-    """Mock endpoint for legal tags"""
-    return [
-        "Civil Procedure",
-        "Constitutional Law",
-        "Criminal Law",
-        "Evidence",
-        "Intellectual Property",
-        "Contract Law",
-        "Tort Law"
-    ]
+    """Get a list of all legal tags."""
+    try:
+        return es_handler.get_legal_tags()
+    except Exception as e:
+        logger.error(f"Error in get_legal_tags: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
-async def search_documents():
-    """Mock search endpoint"""
-    return {
-        "total": 5,
-        "hits": [
-            {
-                "id": "doc1",
-                "file_name": "sample_motion.pdf",
-                "file_path": "/documents/sample_motion.pdf",
-                "text": "This is a sample motion text...",
-                "doc_type": "Motion",
-                "metadata": {
-                    "document_name": "Motion to Dismiss",
-                    "subject": "Civil Procedure",
-                    "case_name": "Smith v. Jones",
-                    "case_number": "CV-2023-123",
-                    "author": "John Smith",
-                    "judge": "Judge Wilson",
-                    "legal_tags": ["Civil Procedure"],
-                    "court": "District Court"
-                },
-                "created_at": "2023-05-15T10:30:00Z"
-            },
-            {
-                "id": "doc2",
-                "file_name": "sample_brief.pdf",
-                "file_path": "/documents/sample_brief.pdf",
-                "text": "This is a sample brief text...",
-                "doc_type": "Brief",
-                "metadata": {
-                    "document_name": "Appellant Brief",
-                    "subject": "Constitutional Law",
-                    "case_name": "Brown v. State",
-                    "case_number": "CV-2023-456",
-                    "author": "Jane Doe",
-                    "judge": "Judge Martinez",
-                    "legal_tags": ["Constitutional Law"],
-                    "court": "Appeals Court"
-                },
-                "created_at": "2023-06-20T14:45:00Z"
-            }
-        ]
-    }
+async def search_documents(search_request: SearchRequest):
+    """Search for documents with advanced filtering options."""
+    try:
+        return es_handler.search_documents(search_request)
+    except Exception as e:
+        logger.error(f"Error in search_documents: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/metadata-fields")
 async def get_metadata_fields():
     """Get a list of all available metadata fields for filtering."""
-    return {
-        "fields": [
-            {"id": "doc_type", "name": "Document Type", "type": "string"},
-            {"id": "category", "name": "Category", "type": "string"},
-            {"id": "metadata.case_number", "name": "Case Number", "type": "string"},
-            {"id": "metadata.case_name", "name": "Case Name", "type": "string"},
-            {"id": "metadata.judge", "name": "Judge", "type": "string"},
-            {"id": "metadata.court", "name": "Court", "type": "string"},
-            {"id": "metadata.legal_tags", "name": "Legal Tags", "type": "string"},
-            {"id": "metadata.author", "name": "Author", "type": "string"},
-            {"id": "metadata.status", "name": "Status", "type": "string"},
-            {"id": "created_at", "name": "Date", "type": "date"}
-        ]
-    }
+    try:
+        # Return the standard metadata fields structure
+        return {
+            "fields": [
+                {"id": "doc_type", "name": "Document Type", "type": "string"},
+                {"id": "category", "name": "Category", "type": "string"},
+                {"id": "metadata.case_number", "name": "Case Number", "type": "string"},
+                {"id": "metadata.case_name", "name": "Case Name", "type": "string"},
+                {"id": "metadata.judge", "name": "Judge", "type": "string"},
+                {"id": "metadata.court", "name": "Court", "type": "string"},
+                {"id": "metadata.legal_tags", "name": "Legal Tags", "type": "string"},
+                {"id": "metadata.author", "name": "Author", "type": "string"},
+                {"id": "metadata.status", "name": "Status", "type": "string"},
+                {"id": "created_at", "name": "Date", "type": "date"}
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error in get_metadata_fields: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/all-field-options")
 async def get_all_field_options():
     """Get all available options for multiple fields at once."""
-    return {
-        "doc_type": ["Motion", "Brief", "Opinion", "Order", "Complaint"],
-        "category": ["Civil", "Criminal", "Administrative", "Constitutional"],
-        "case_number": ["CV-2023-123", "CV-2023-456", "CR-2023-789"],
-        "judge": ["Judge Wilson", "Judge Martinez", "Judge Johnson"],
-        "court": ["District Court", "Appeals Court", "Supreme Court"],
-        "legal_tags": ["Civil Procedure", "Constitutional Law", "Criminal Law", "Evidence"],
-        "status": ["Active", "Closed", "Pending"]
-    }
+    try:
+        # Fields to get options for
+        fields = [
+            "doc_type",
+            "category",
+            "case_number",
+            "judge",
+            "court",
+            "legal_tags",
+            "status"
+        ]
+        
+        # Get options for each field
+        result = {}
+        for field in fields:
+            size = 10000  # Use a larger size to get more options
+            options = es_handler.get_metadata_field_values(field, size=size)
+            result[field] = options
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error in get_all_field_options: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Vercel."""
-    return {"status": "healthy", "environment": "vercel"}
+    """Health check endpoint."""
+    try:
+        # Check Elasticsearch connection
+        es_status = "unknown"
+        try:
+            # Attempt to ping Elasticsearch
+            es_status = "connected" if es_handler.ping() else "disconnected"
+        except Exception as e:
+            es_status = f"error: {str(e)}"
+        
+        return {
+            "status": "healthy", 
+            "environment": "vercel" if os.environ.get('VERCEL') == '1' else "local",
+            "elasticsearch": es_status
+        }
+    except Exception as e:
+        logger.error(f"Error in health_check: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/")
 async def root():
     """Root endpoint to check if the API is running."""
-    return {"message": "Motion-Index API is running (Vercel version)"}
+    return {"message": "Motion-Index API is running"}
+
