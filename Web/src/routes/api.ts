@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// Using the API deployed on Vercel
-// This assumes both frontend and API are deployed on the same Vercel project
-const API_URL = '/api';
+// Using a separate API deployment on Vercel
+// Replace this URL with your actual API deployment URL
+const API_URL = 'https://motion-index-api.vercel.app';
 // const API_URL = 'http://172.20.0.2:8000';
 // const API_URL = 'http://0.0.0.0:8000'
 
