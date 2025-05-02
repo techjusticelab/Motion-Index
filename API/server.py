@@ -41,10 +41,9 @@ origins = [
     "http://localhost",
     "http://localhost:8080",
     "http://motionindex.techjusticelab.org",
-    "https://motionindex.techjusticelab.org",
-    "http://motion-index-git-main-techjusticelabs-projects.vercel.app",
-    "https://motion-index-git-main-techjusticelabs-projects.vercel.app",
     "https://motionindex.techjusticelab.org"
+    "https://motion-index.vercel.app"
+    "http://motion-index.vercel.app"
 ]
 
 

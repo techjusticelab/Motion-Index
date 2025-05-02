@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_URL = 'https://api.motionindex.techjusticelab.org';
+// TEMPORARY FIX FOR SSL ISSUES - Change back to HTTPS after fixing SSL
+const API_URL = 'http://api.motion-index.vercel.app';
 // const API_URL = 'http://172.20.0.2:8000';
 // const API_URL = 'http://0.0.0.0:8000'
 
