@@ -2,14 +2,12 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/vercel_handler.py",
+      "src": "index.py",
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.9",
         "pip": [
-          "fastapi==0.109.0",
-          "uvicorn==0.27.0",
-          "pydantic==2.5.0"
+          "--requirement", "vercel-simple-requirements.txt"
         ]
       }
     }
@@ -17,7 +15,7 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/vercel_handler.py"
+      "dest": "index.py"
     }
   ]
 }
