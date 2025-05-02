@@ -3,12 +3,11 @@
 	import { fade, fly, slide, scale } from 'svelte/transition';
 	import { cubicOut, quintOut, elasticOut, backOut } from 'svelte/easing';
 	import { page } from '$app/stores';
-	import { supabaseClient } from '$lib/supabase';
 
 	// User data
 	let user = $page.data.session?.user;
 	let isLoadingUserDetails = false;
-	let userDetails = null;
+	let userDetails: { full_name: any } | null = null;
 
 	// Case management
 	let cases = $page.data.cases || [];
@@ -16,12 +15,12 @@
 	let isCreatingCase = false;
 	let isUpdatingCase = false;
 	let newCaseName = '';
-	let selectedCase = null;
-	let updateSuccess = null;
+	let selectedCase: { id: any } | null = null;
+	let updateSuccess: boolean | null = null;
 	let updateMessage = '';
 
 	// Form states for case editing
-	let editingCaseId = null;
+	let editingCaseId: null = null;
 	let editCaseName = '';
 
 	// Timer for success/error message
@@ -94,7 +93,7 @@
 	}
 
 	// Start editing a case
-	function startEditing(caseItem) {
+	function startEditing(caseItem: { id: any; name: string }) {
 		editingCaseId = caseItem.id;
 		editCaseName = caseItem.name || '';
 		selectedCase = caseItem;
@@ -125,7 +124,7 @@
 			if (error) throw error;
 
 			// Update case in the list
-			cases = cases.map((c) => (c.id === editingCaseId ? data[0] : c));
+			cases = cases.map((c: { id: any }) => (c.id === editingCaseId ? data[0] : c));
 
 			updateSuccess = true;
 			updateMessage = 'Case updated successfully!';
@@ -141,7 +140,7 @@
 	}
 
 	// Delete a case
-	async function deleteCase(caseId) {
+	async function deleteCase(caseId: any) {
 		if (!confirm('Are you sure you want to delete this case? This action cannot be undone.')) {
 			return;
 		}
@@ -161,8 +160,8 @@
 			if (error) throw error;
 
 			// Update the lists
-			cases = cases.filter((c) => c.id !== caseId);
-			caseDocuments = caseDocuments.filter((d) => d.case_id !== caseId);
+			cases = cases.filter((c: { id: any }) => c.id !== caseId);
+			caseDocuments = caseDocuments.filter((d: { case_id: any }) => d.case_id !== caseId);
 
 			if (selectedCase && selectedCase.id === caseId) {
 				selectedCase = null;
@@ -180,12 +179,12 @@
 	}
 
 	// Get document count for a case
-	function getDocumentCount(caseId) {
-		return caseDocuments.filter((doc) => doc.case_id === caseId).length;
+	function getDocumentCount(caseId: any) {
+		return caseDocuments.filter((doc: { case_id: any }) => doc.case_id === caseId).length;
 	}
 
 	// Format date for display
-	function formatDate(dateString) {
+	function formatDate(dateString: string | number | Date) {
 		if (!dateString) return 'N/A';
 		return new Date(dateString).toLocaleDateString('en-US', {
 			year: 'numeric',

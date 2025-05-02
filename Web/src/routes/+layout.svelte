@@ -7,21 +7,8 @@
 	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
 	import '../app.css';
 
-<<<<<<< HEAD
 	let { data, children } = $props();
 	let { session, supabase } = $derived(data);
-=======
-	let { children } = $props();
-
-	// Update the user store when session changes
-	$effect(() => {
-		console.log('Page data:', $page.data.user);
-		if ($page.data) {
-			user.set($page.data.session?.user || null);
-			isLoading.set(false);
-		}
-	});
->>>>>>> 908747cf2d0590d2433d4527bf5bfef92cbbe758
 
 	// Flag to control animations after initial page load
 	let isInitialLoad = true;
@@ -45,8 +32,6 @@
 	});
 </script>
 
-{@render children()}
-
 <div class="min-h-screen bg-gray-50" in:fade={{ duration: 300, easing: cubicOut }}>
 	<header class="bg-indigo-600 shadow-md" in:fly={{ y: -20, duration: 700, easing: cubicOut }}>
 		<div class="container mx-auto px-4 py-4" in:fade={{ duration: 500, delay: 100 }}>
@@ -57,7 +42,6 @@
 					in:scale={{ start: 0.9, duration: 600, delay: 200, easing: elasticOut }}>Motion Index</a
 				>
 				<nav class="mt-3 sm:mt-0" in:fly={{ y: -10, duration: 500, delay: 300, easing: cubicOut }}>
-					<h1>{$page.data.session?.user}</h1>
 					<ul class="flex space-x-6 text-white">
 						{#each [{ href: '/', text: 'Search', isSpecial: false }, { href: '/upload', text: 'Upload', isSpecial: false }, { href: '/account', text: 'Account', isSpecial: false }, { href: '/help', text: 'Help', isSpecial: true }] as item, i}
 							<li
