@@ -6,7 +6,11 @@
       "use": "@vercel/python",
       "config": {
         "runtime": "python3.9",
-        "pip": ["--requirement", "vercel-requirements.txt"]
+        "pip": [
+          "--upgrade", "pip",
+          "--requirement", "vercel-requirements.txt"
+        ],
+        "maxLambdaSize": "15mb"
       }
     }
   ],
