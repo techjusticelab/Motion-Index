@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "builds": [
+    { 
+      "src": "Web/package.json", 
+      "use": "@vercel/node",
+      "config": { "buildCommand": "cd Web && npm install && npm run build" }
+    },
+    { 
+      "src": "API/api/index.py", 
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.9",
+        "pip": ["--requirement", "API/vercel-requirements.txt"]
+      }
+    }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/API/api/index.py" },
+    { "src": "/(.*)", "dest": "/Web/.svelte-kit/output/server/index.js" }
+  ],
+  "env": {
+    "PYTHONPATH": "./API"
+  }
+}

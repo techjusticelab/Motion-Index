@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Using HTTPS to avoid Mixed Content errors in the browser
-const API_URL = 'https://api.motion-index.vercel.app';
+// Using the API deployed on Vercel
+// This assumes both frontend and API are deployed on the same Vercel project
+const API_URL = '/api';
 // const API_URL = 'http://172.20.0.2:8000';
 // const API_URL = 'http://0.0.0.0:8000'
 
