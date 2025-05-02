@@ -7,7 +7,6 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 const supabase: Handle = async ({ event, resolve }) => {
     /**
      * Creates a Supabase client specific to this server request.
-     *
      * The Supabase client gets the Auth token from the request cookies.
      */
     event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
@@ -24,6 +23,11 @@ const supabase: Handle = async ({ event, resolve }) => {
                 })
             },
         },
+        global: {
+            headers: {
+                'X-Client-Info': `sveltekit-supabase@${new Date().toISOString()}`
+            }
+        }
     })
 
     /**
@@ -51,6 +55,12 @@ const supabase: Handle = async ({ event, resolve }) => {
         return { session, user }
     }
 
+    // For backward compatibility with existing code
+    event.locals.getSession = async () => {
+        const { session } = await event.locals.safeGetSession();
+        return session;
+    };
+
     return resolve(event, {
         filterSerializedResponseHeaders(name) {
             /**
@@ -67,15 +77,57 @@ const authGuard: Handle = async ({ event, resolve }) => {
     event.locals.session = session
     event.locals.user = user
 
-    if (!event.locals.session && event.url.pathname.startsWith('/private')) {
-        redirect(303, '/auth')
+    // Define all protected routes
+    const protectedRoutes = [
+        '/account',
+        '/upload',
+        '/documents',
+        '/cases',
+        '/private'
+    ];
+
+    // Check if current path is a protected route
+    const isProtectedRoute = protectedRoutes.some(route =>
+        event.url.pathname.startsWith(route)
+    );
+
+    // For API routes, return 401 instead of redirecting
+    const isApiRoute = event.url.pathname.startsWith('/api/');
+
+    if (!session && isProtectedRoute) {
+        if (isApiRoute) {
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
+        // Include the original URL as a redirect parameter
+        const redirectUrl = encodeURIComponent(event.url.pathname + event.url.search);
+        throw redirect(303, `/auth/login?redirectTo=${redirectUrl}`);
     }
 
-    if (event.locals.session && event.url.pathname === '/auth') {
-        redirect(303, '/private')
+    // Redirect away from auth pages if already logged in (except logout)
+    const isAuthRoute = event.url.pathname.startsWith('/auth');
+    if (session && isAuthRoute && !event.url.pathname.includes('logout')) {
+        throw redirect(303, '/account');
     }
 
-    return resolve(event)
+    const response = await resolve(event);
+
+    // Add security headers
+    const securityHeaders = {
+        'X-Frame-Options': 'SAMEORIGIN',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+    };
+
+    // Add security headers to the response
+    Object.entries(securityHeaders).forEach(([header, value]) => {
+        response.headers.set(header, value);
+    });
+
+    return response;
 }
 
 export const handle: Handle = sequence(supabase, authGuard)

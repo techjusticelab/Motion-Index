@@ -1,7 +1,6 @@
 import { writable } from 'svelte/store';
 import type { User } from '@supabase/supabase-js';
 
-export const isLoading = writable(true);
 
 export const user = writable<User | null>(null);
 
