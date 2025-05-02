@@ -40,7 +40,13 @@ origins = [
     "http://api.motionindex.techjusticelab.org",
     "http://localhost",
     "http://localhost:8080",
+    "http://motionindex.techjusticelab.org",
+    "https://motionindex.techjusticelab.org",
+    "http://motion-index-git-main-techjusticelabs-projects.vercel.app",
+    "https://motion-index-git-main-techjusticelabs-projects.vercel.app",
+    "https://motionindex.techjusticelab.org"
 ]
+
 
 app.add_middleware(
     CORSMiddleware,
