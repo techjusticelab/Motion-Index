@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { user, isLoading } from './lib/stores/auth';
+	import { user } from './lib/stores/auth';
 	import { onMount } from 'svelte';
 	import { fade, fly, slide, scale } from 'svelte/transition';
 	import { invalidate } from '$app/navigation';
@@ -39,8 +39,11 @@
 				<a
 					href="/"
 					class="text-2xl font-bold text-white transition hover:text-indigo-200"
-					in:scale={{ start: 0.9, duration: 600, delay: 200, easing: elasticOut }}>Motion Index</a
-				>
+					in:scale={{ start: 0.9, duration: 600, delay: 200, easing: elasticOut }}
+					>Motion Index <p class="text-gray-6000 text-sm font-normal">
+						Berkeley Technology and Justice Lab
+					</p>
+				</a>
 				<nav class="mt-3 sm:mt-0" in:fly={{ y: -10, duration: 500, delay: 300, easing: cubicOut }}>
 					<ul class="flex space-x-6 text-white">
 						{#each [{ href: '/', text: 'Search', isSpecial: false }, { href: '/upload', text: 'Upload', isSpecial: false }, { href: '/account', text: 'Account', isSpecial: false }, { href: '/help', text: 'Help', isSpecial: true }] as item, i}
