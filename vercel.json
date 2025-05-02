@@ -16,6 +16,16 @@
     }
   ],
   "routes": [
+    { "src": "/api/document-types", "dest": "/API/api/index.py" },
+    { "src": "/api/search", "dest": "/API/api/index.py" },
+    { "src": "/api/legal-tags", "dest": "/API/api/index.py" },
+    { "src": "/api/metadata-field-values", "dest": "/API/api/index.py" },
+    { "src": "/api/all-field-options", "dest": "/API/api/index.py" },
+    { "src": "/api/document-stats", "dest": "/API/api/index.py" },
+    { "src": "/api/metadata-fields", "dest": "/API/api/index.py" },
+    { "src": "/api/categorise", "dest": "/API/api/index.py" },
+    { "src": "/api/update-metadata", "dest": "/API/api/index.py" },
+    { "src": "/api/health", "dest": "/API/api/index.py" },
     { "src": "/api/(.*)", "dest": "/API/api/index.py" },
     { "src": "/(.*)", "dest": "/Web/.svelte-kit/output/server/index.js" }
   ],
