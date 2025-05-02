@@ -37,7 +37,7 @@ app = FastAPI(
 )
 
 origins = [
-    "api.motionindex.techjusticelab.org",
+    "https://api.motionindex.techjusticelab.org",
     "http://localhost",
     "http://localhost:8080",
 ]
