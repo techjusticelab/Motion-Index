@@ -354,35 +354,9 @@ async def update_document_metadata(request: MetadataUpdateRequest, user: dict = 
 
 
 if __name__ == "__main__":
-    # Check if SSL certificates exist, if not, generate them
-    cert_file = "ssl/cert.pem"
-    key_file = "ssl/key.pem"
-    
-    if not os.path.exists(cert_file) or not os.path.exists(key_file):
-        try:
-            from generate_cert import generate_self_signed_cert
-            generate_self_signed_cert(cert_file, key_file)
-        except Exception as e:
-            logger.error(f"Failed to generate SSL certificates: {e}")
-            logger.warning("Starting server without SSL")
-            uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
-    
     # Get port from environment or use default
     port = int(os.environ.get("PORT", 8000))
     
-    # Check if SSL should be enabled
-    use_ssl = os.environ.get("USE_SSL", "True").lower() == "true"
-    
-    if use_ssl and os.path.exists(cert_file) and os.path.exists(key_file):
-        logger.info(f"Starting HTTPS server on port {port}")
-        uvicorn.run(
-            "server:app", 
-            host="0.0.0.0", 
-            port=port,
-            ssl_keyfile=key_file,
-            ssl_certfile=cert_file,
-            reload=True
-        )
-    else:
-        logger.warning("SSL certificates not found or SSL disabled, starting without HTTPS")
-        uvicorn.run("server:app", host="0.0.0.0", port=port, reload=True)
+    # Start the server without SSL (ngrok handles HTTPS)
+    logger.info(f"Starting HTTP server on port {port} (HTTPS handled by ngrok)")
+    uvicorn.run("server:app", host="0.0.0.0", port=port, reload=True)
