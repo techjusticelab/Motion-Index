@@ -2,21 +2,32 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies including LibreOffice with Java support and OpenSSL for SSL certificates
-RUN apt-get update && apt-get install -y \
+# Install system dependencies in multiple steps to better manage disk space
+# First, essential build tools and SSL
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libpoppler-cpp-dev \
     pkg-config \
     python3-dev \
+    openssl \
+    libssl-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Second, document processing tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpoppler-cpp-dev \
     tesseract-ocr \
     libtesseract-dev \
     libmagic1 \
     antiword \
-    libreoffice \
-    default-jre \
-    openssl \
-    libssl-dev \
-    --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Finally, LibreOffice and Java (these are the largest)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    libreoffice-calc \
+    default-jre-headless \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
