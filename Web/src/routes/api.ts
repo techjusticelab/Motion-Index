@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
 // Using ngrok for HTTPS tunneling to the API server
-const API_URL = 'https://rational-evolving-joey.ngrok-free.app';
+const API_URL = 'https://motion-index-api.ngrok.io';
 // const API_URL = 'https://3.88.135.105:8000';
 // const API_URL = 'https://172.20.0.2:8000';
 //const API_URL = 'https://0.0.0.0:8000'
