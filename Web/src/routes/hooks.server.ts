@@ -2,7 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { type Handle, redirect } from '@sveltejs/kit'
 import { sequence } from '@sveltejs/kit/hooks'
 
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public'
+// Use environment variables directly for now to avoid import errors
+const PUBLIC_SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL || ''
+const PUBLIC_SUPABASE_ANON_KEY = process.env.PUBLIC_SUPABASE_ANON_KEY || ''
 
 const supabase: Handle = async ({ event, resolve }) => {
     /**
@@ -73,10 +75,13 @@ const supabase: Handle = async ({ event, resolve }) => {
 }
 
 const authGuard: Handle = async ({ event, resolve }) => {
+    // Get the session and user from the event
     const { session, user } = await event.locals.safeGetSession()
+    
+    // Store them in event.locals for use in routes
     event.locals.session = session
     event.locals.user = user
-
+    
     // Define all protected routes
     const protectedRoutes = [
         '/account',
@@ -86,25 +91,37 @@ const authGuard: Handle = async ({ event, resolve }) => {
         '/private'
     ];
 
-    // Check if current path is a protected route
-    const isProtectedRoute = protectedRoutes.some(route =>
-        event.url.pathname.startsWith(route)
-    );
+    // Check if current path is a protected route (exact match or starts with the route)
+    const isProtectedRoute = protectedRoutes.some(route => {
+        // Check if the pathname exactly matches the route or starts with the route followed by a slash
+        return event.url.pathname === route || 
+               event.url.pathname.startsWith(`${route}/`);
+    });
 
     // For API routes, return 401 instead of redirecting
     const isApiRoute = event.url.pathname.startsWith('/api/');
 
-    if (!session && isProtectedRoute) {
-        if (isApiRoute) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-                status: 401,
-                headers: { 'Content-Type': 'application/json' }
-            });
-        }
+    // If user is trying to access a protected route, check auth cookie
+    if (isProtectedRoute) {
+        // Check for our custom auth cookie
+        const authCookie = event.cookies.get('motion-index-auth');
+        
+        // If no auth cookie and no session, redirect to login
+        if (!authCookie && !session) {
+            console.log(`Redirecting unauthenticated user from ${event.url.pathname} to login`);
+            
+            if (isApiRoute) {
+                // For API routes, return a 401 response
+                return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                    status: 401,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
 
-        // Include the original URL as a redirect parameter
-        const redirectUrl = encodeURIComponent(event.url.pathname + event.url.search);
-        throw redirect(303, `/auth/login?redirectTo=${redirectUrl}`);
+            // For regular routes, redirect to login
+            const redirectUrl = encodeURIComponent(event.url.pathname + event.url.search);
+            throw redirect(303, `/auth/login?redirectTo=${redirectUrl}`);
+        }
     }
 
     // Redirect away from auth pages if already logged in (except logout)

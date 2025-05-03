@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { user } from './lib/stores/auth';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly, slide, scale } from 'svelte/transition';
 	import { invalidate } from '$app/navigation';
 	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
@@ -13,6 +13,23 @@
 	// Flag to control animations after initial page load
 	let isInitialLoad = true;
 
+	// Auth token is now directly accessed from localStorage in the API client
+
+	// Handle auth state changes
+	let unsubscribe: () => void;
+
+	$effect(() => {
+		if (session) {
+			const { data } = supabase.auth.onAuthStateChange((_, newSession) => {
+				if (session?.access_token !== newSession?.access_token) {
+					// Just invalidate the session when it changes
+					invalidate('supabase:auth');
+				}
+			});
+			unsubscribe = () => data.subscription.unsubscribe();
+		}
+	})
+
 	onMount(() => {
 		console.log('User session:', $page.data.user);
 		// Set initial load to false after the first render
@@ -21,14 +38,10 @@
 		}, 100);
 	});
 
-	onMount(() => {
-		const { data } = supabase.auth.onAuthStateChange((_, newSession) => {
-			if (newSession?.expires_at !== session?.expires_at) {
-				invalidate('supabase:auth');
-			}
-		});
-
-		return () => data.subscription.unsubscribe();
+	onDestroy(() => {
+		if (unsubscribe) {
+			unsubscribe();
+		}
 	});
 </script>
 

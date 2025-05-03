@@ -4,11 +4,15 @@ FastAPI server for Motion-Index document search API.
 import os
 import logging
 from typing import Dict, List, Optional, Any, Union
-from fastapi import FastAPI, Query, HTTPException, File, UploadFile
+from fastapi import FastAPI, Query, HTTPException, File, UploadFile, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import dotenv
 import uvicorn
 from pydantic import BaseModel, Field
+
+# Import authentication functions
+from src.middleware.auth import get_current_user
 
 from src.handlers.elasticsearch_handler import ElasticsearchHandler
 from src.utils.constants import (
@@ -40,6 +44,7 @@ origins = [
     "https://api.motionindex.techjusticelab.org",
     "http://localhost",
     "http://localhost:8080",
+    "http://localhost:5173",  # SvelteKit dev server
     "http://motionindex.techjusticelab.org",
     "https://motionindex.techjusticelab.org",
     "https://motion-index.vercel.app",
@@ -177,7 +182,7 @@ async def search_documents(search_request: SearchRequest):
 
 
 @app.get("/legal-tags")
-async def get_legal_tags():
+async def get_legal_tags(user: dict = Depends(get_current_user)):
     """
     Get a list of all legal types and their counts.
     """
@@ -197,7 +202,7 @@ async def get_document_types():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/metadata-field-values")
-async def get_metadata_field_values(request: MetadataFieldRequest):
+async def get_metadata_field_values(request: MetadataFieldRequest, user: dict = Depends(get_current_user)):
     """
     Get unique values for a specific metadata field, optionally filtered by prefix.
     """
@@ -211,7 +216,7 @@ async def get_metadata_field_values(request: MetadataFieldRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/document-stats")
-async def get_document_stats():
+async def get_document_stats(user: dict = Depends(get_current_user)):
     """
     Get statistics about the indexed documents.
     """
@@ -221,7 +226,7 @@ async def get_document_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/metadata-fields")
-async def get_metadata_fields():
+async def get_metadata_fields(user: dict = Depends(get_current_user)):
     """
     Get a list of all available metadata fields for filtering.
     """
@@ -241,7 +246,7 @@ async def get_metadata_fields():
     }
 
 @app.get("/all-field-options")
-async def get_all_field_options():
+async def get_all_field_options(user: dict = Depends(get_current_user)):
     """
     Get all available options for multiple fields at once.
     This is used to populate dropdowns and filter options in the UI.
@@ -272,7 +277,7 @@ async def get_all_field_options():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/categorise")
-async def categorise_document(file: UploadFile = File(...)):
+async def categorise_document(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     """
     Upload and categorise a document using the document processor.
     Returns the full document data from Elasticsearch including all metadata fields.
@@ -314,7 +319,7 @@ async def categorise_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error categorising document: {str(e)}")
 
 @app.post("/update-metadata")
-async def update_document_metadata(request: MetadataUpdateRequest):
+async def update_document_metadata(request: MetadataUpdateRequest, user: dict = Depends(get_current_user)):
     """
     Update metadata fields for a document.
     """

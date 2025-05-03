@@ -1,10 +1,13 @@
 import axios from 'axios';
+import { browser } from '$app/environment';
+import { getAuthToken, isAuthenticated } from '../lib/auth';
+import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
 // Replace this URL with your actual API deployment URL
-const API_URL = 'https://motion-index-api.vercel.app';
+// const API_URL = 'http://44.205.248.1:8000';
 // const API_URL = 'http://172.20.0.2:8000';
-// const API_URL = 'http://0.0.0.0:8000'
+const API_URL = 'http://0.0.0.0:8000'
 
 // Define types
 export interface SearchParams {
@@ -66,9 +69,34 @@ export interface MetadataField {
   type: string;
 }
 
+/**
+ * Get authentication headers for API requests using our new auth system
+ */
+async function getAuthHeaders() {
+  // Check if user is authenticated
+  const authenticated = get(isAuthenticated);
+  
+  if (authenticated && browser) {
+    const token = getAuthToken();
+    
+    if (token) {
+      console.log('Using auth token for API request');
+      return {
+        Authorization: `Bearer ${token}`
+      };
+    }
+  }
+  
+  console.log('No authenticated user, proceeding without auth token');
+  return {};
+}
+
 // API client functions
 export async function searchDocuments(params: SearchParams): Promise<SearchResponse> {
   try {
+    console.log('Searching documents with params:', params);
+    
+    // Make the request without auth headers to ensure it works for all users
     const response = await axios.post(`${API_URL}/search`, params);
     return response.data;
   } catch (error) {
@@ -79,6 +107,9 @@ export async function searchDocuments(params: SearchParams): Promise<SearchRespo
 
 export async function getDocumentTypes(): Promise<Record<string, number>> {
   try {
+    console.log('Getting document types');
+    
+    // Make the request without auth headers to ensure it works for all users
     const response = await axios.get(`${API_URL}/document-types`);
     return response.data;
   } catch (error) {
@@ -89,7 +120,8 @@ export async function getDocumentTypes(): Promise<Record<string, number>> {
 
 export async function getLegalTags(): Promise<string[]> {
   try {
-    const response = await axios.get(`${API_URL}/legal-tags`);
+    const headers = await getAuthHeaders();
+    const response = await axios.get(`${API_URL}/legal-tags`, { headers });
     return response.data;
   } catch (error) {
     console.error('Error getting legal tags:', error);
@@ -98,11 +130,12 @@ export async function getLegalTags(): Promise<string[]> {
 }
 export async function getMetadataFieldValues(field: string, prefix?: string, size: number = 20): Promise<string[]> {
   try {
+    const headers = await getAuthHeaders();
     const response = await axios.post(`${API_URL}/metadata-field-values`, {
       field,
       prefix,
       size
-    });
+    }, { headers });
     return response.data;
   } catch (error) {
     console.error(`Error getting metadata field values for ${field}:`, error);
@@ -112,7 +145,8 @@ export async function getMetadataFieldValues(field: string, prefix?: string, siz
 
 export async function getAllFieldOptions(): Promise<Record<string, string[]>> {
   try {
-    const response = await axios.get(`${API_URL}/all-field-options`);
+    const headers = await getAuthHeaders();
+    const response = await axios.get(`${API_URL}/all-field-options`, { headers });
     return response.data;
   } catch (error) {
     console.error('Error getting all field options:', error);
@@ -122,7 +156,8 @@ export async function getAllFieldOptions(): Promise<Record<string, string[]>> {
 
 export async function getDocumentStats(): Promise<any> {
   try {
-    const response = await axios.get(`${API_URL}/document-stats`);
+    const headers = await getAuthHeaders();
+    const response = await axios.get(`${API_URL}/document-stats`, { headers });
     return response.data;
   } catch (error) {
     console.error('Error getting document stats:', error);
@@ -132,7 +167,8 @@ export async function getDocumentStats(): Promise<any> {
 
 export async function getMetadataFields(): Promise<{ fields: MetadataField[] }> {
   try {
-    const response = await axios.get(`${API_URL}/metadata-fields`);
+    const headers = await getAuthHeaders();
+    const response = await axios.get(`${API_URL}/metadata-fields`, { headers });
     return response.data;
   } catch (error) {
     console.error('Error getting metadata fields:', error);
@@ -144,10 +180,12 @@ export async function categoriseDocument(file: File): Promise<any> {
   try {
     const formData = new FormData();
     formData.append("file", file);
-
+    
+    const authHeaders = await getAuthHeaders();
     const response = await axios.post(`${API_URL}/categorise`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
+        ...authHeaders
       },
     });
     console.log("Categorise response:", response.data);
@@ -160,10 +198,11 @@ export async function categoriseDocument(file: File): Promise<any> {
 
 export async function updateDocumentMetadata(documentId: string, metadata: any): Promise<any> {
   try {
+    const headers = await getAuthHeaders();
     const response = await axios.post(`${API_URL}/update-metadata`, {
       document_id: documentId,
       metadata: metadata
-    });
+    }, { headers });
     return response.data;
   } catch (error) {
     console.error('Error updating document metadata:', error);

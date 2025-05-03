@@ -137,8 +137,8 @@
 	// Sign out function
 	async function signOut() {
 		try {
-			await supabase.auth.signOut();
-			await goto('/auth/login');
+			// Use the dedicated logout route which handles proper session cleanup
+			await goto('/auth/logout');
 		} catch (error) {
 			console.error('Error signing out:', error);
 		}

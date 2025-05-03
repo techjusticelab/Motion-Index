@@ -20,6 +20,10 @@ services:
       - ES_INDEX=${ES_INDEX}
       - ES_API_KEY=${ES_API_KEY}
       - ES_USE_SSL=${ES_USE_SSL:-True}
+      # Supabase authentication settings
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - SUPABASE_PUBLIC_KEY=${SUPABASE_PUBLIC_KEY}
     command: >
       bash -c "python server.py"
     networks:
