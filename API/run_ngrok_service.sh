@@ -32,7 +32,7 @@ Type=simple
 User=$(whoami)
 WorkingDirectory=/home/$(whoami)
 Environment="NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}"
-ExecStart=/usr/local/bin/ngrok http 8000 --log=stdout
+ExecStart=/usr/local/bin/ngrok http --url=rational-evolving-joey.ngrok-free.app 8000 --log=stdout
 Restart=always
 RestartSec=10
 

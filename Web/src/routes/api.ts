@@ -4,8 +4,9 @@ import { getAuthToken, isAuthenticated } from '$lib/auth';
 import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
-// Replace this URL with your actual API deployment URL
-const API_URL = 'https://3.88.135.105:8000';
+// Using ngrok for HTTPS tunneling to the API server
+const API_URL = 'https://rational-evolving-joey.ngrok-free.app';
+// const API_URL = 'https://3.88.135.105:8000';
 // const API_URL = 'https://172.20.0.2:8000';
 //const API_URL = 'https://0.0.0.0:8000'
 
@@ -73,6 +74,11 @@ export interface MetadataField {
  * Get authentication headers for API requests using our new auth system
  */
 async function getAuthHeaders() {
+  // Default headers to include the ngrok-skip-browser-warning header
+  const defaultHeaders = {
+    'ngrok-skip-browser-warning': 'true'
+  };
+  
   // Check if user is authenticated
   const authenticated = get(isAuthenticated);
   
@@ -82,13 +88,14 @@ async function getAuthHeaders() {
     if (token) {
       console.log('Using auth token for API request');
       return {
+        ...defaultHeaders,
         Authorization: `Bearer ${token}`
       };
     }
   }
   
   console.log('No authenticated user, proceeding without auth token');
-  return {};
+  return defaultHeaders;
 }
 
 // API client functions
