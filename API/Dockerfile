@@ -2,7 +2,7 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Install system dependencies including LibreOffice with Java support
+# Install system dependencies including LibreOffice with Java support and OpenSSL for SSL certificates
 RUN apt-get update && apt-get install -y \
     build-essential \
     libpoppler-cpp-dev \
@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y \
     antiword \
     libreoffice \
     default-jre \
+    openssl \
+    libssl-dev \
     --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
