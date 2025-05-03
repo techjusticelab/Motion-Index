@@ -5,9 +5,9 @@ import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
 // Replace this URL with your actual API deployment URL
-// const API_URL = 'http://44.205.248.1:8000';
+const API_URL = 'http://44.205.248.1:8000';
 // const API_URL = 'http://172.20.0.2:8000';
-const API_URL = 'http://0.0.0.0:8000'
+//const API_URL = 'http://0.0.0.0:8000'
 
 // Define types
 export interface SearchParams {
