@@ -137,7 +137,7 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 @app.post("/search")
-async def search_documents(search_request: SearchRequest):
+async def search_documents(search_request: SearchRequest, user: dict = Depends(get_current_user)):
     """
     Search for documents with advanced filtering options.
     """

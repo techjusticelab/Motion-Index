@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { page } from '$app/stores';
-	import { clearAuth } from '../../../lib/auth';
+	import { clearAuth } from '$lib/auth';
 	
 	// Handle logout on the client side
 	onMount(async () => {

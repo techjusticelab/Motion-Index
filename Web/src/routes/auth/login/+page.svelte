@@ -29,7 +29,7 @@
 	}
 
 	// Import our new auth system
-import { setAuth, clearAuth } from '../../../lib/auth';
+import { setAuth, clearAuth } from '$lib/auth';
 
 const handleSubmit = async (event: SubmitEvent) => {
 		// Prevent default form submission to handle it manually

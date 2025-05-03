@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { browser } from '$app/environment';
-import { getAuthToken, isAuthenticated } from '../lib/auth';
+import { getAuthToken, isAuthenticated } from '$lib/auth';
 import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
@@ -96,8 +96,11 @@ export async function searchDocuments(params: SearchParams): Promise<SearchRespo
   try {
     console.log('Searching documents with params:', params);
     
-    // Make the request without auth headers to ensure it works for all users
-    const response = await axios.post(`${API_URL}/search`, params);
+    // Get auth headers since search is now protected
+    const headers = await getAuthHeaders();
+    
+    // Make the request with auth headers
+    const response = await axios.post(`${API_URL}/search`, params, { headers });
     return response.data;
   } catch (error) {
     console.error('Error searching documents:', error);

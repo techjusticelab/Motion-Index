@@ -82,17 +82,16 @@ const authGuard: Handle = async ({ event, resolve }) => {
     event.locals.session = session
     event.locals.user = user
     
-    // Define all protected routes
-    const protectedRoutes = [
-        '/account',
-        '/upload',
-        '/documents',
-        '/cases',
-        '/private'
+    // Define public routes that don't require authentication
+    const publicRoutes = [
+        '/auth/login',
+        '/auth/logout',
+        '/auth/register',
+        '/auth/reset-password'
     ];
 
-    // Check if current path is a protected route (exact match or starts with the route)
-    const isProtectedRoute = protectedRoutes.some(route => {
+    // Check if current path is a public route
+    const isPublicRoute = publicRoutes.some(route => {
         // Check if the pathname exactly matches the route or starts with the route followed by a slash
         return event.url.pathname === route || 
                event.url.pathname.startsWith(`${route}/`);
@@ -101,8 +100,8 @@ const authGuard: Handle = async ({ event, resolve }) => {
     // For API routes, return 401 instead of redirecting
     const isApiRoute = event.url.pathname.startsWith('/api/');
 
-    // If user is trying to access a protected route, check auth cookie
-    if (isProtectedRoute) {
+    // If user is trying to access a non-public route, check auth
+    if (!isPublicRoute) {
         // Check for our custom auth cookie
         const authCookie = event.cookies.get('motion-index-auth');
         
