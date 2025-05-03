@@ -5,7 +5,7 @@ import { get } from 'svelte/store';
 
 // Using a separate API deployment on Vercel
 // Replace this URL with your actual API deployment URL
-const API_URL = 'https://44.205.248.1:8000';
+const API_URL = 'https://3.88.135.105:8000';
 // const API_URL = 'https://172.20.0.2:8000';
 //const API_URL = 'https://0.0.0.0:8000'
 
