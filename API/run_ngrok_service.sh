@@ -32,6 +32,31 @@ if [ -z "$NGROK_AUTH_TOKEN" ]; then
     exit 1
 fi
 
+# Find the correct path to ngrok executable
+NGROK_PATH=$(which ngrok)
+if [ -z "$NGROK_PATH" ]; then
+    # Try common locations if 'which' doesn't find it
+    for path in "/usr/bin/ngrok" "/usr/local/bin/ngrok" "/home/$(whoami)/ngrok" "/home/$(whoami)/bin/ngrok" "/snap/bin/ngrok"; do
+        if [ -f "$path" ]; then
+            NGROK_PATH="$path"
+            break
+        fi
+    done
+    
+    # If still not found, ask user
+    if [ -z "$NGROK_PATH" ]; then
+        echo "Could not find ngrok executable. Please enter the full path to ngrok:"
+        read -p "> " NGROK_PATH
+        
+        if [ ! -f "$NGROK_PATH" ]; then
+            echo "Error: $NGROK_PATH does not exist or is not a file."
+            exit 1
+        fi
+    fi
+fi
+
+echo "Using ngrok from: $NGROK_PATH"
+
 # Create systemd service file for ngrok
 cat > /tmp/ngrok.service << EOF
 [Unit]
@@ -43,7 +68,7 @@ Type=simple
 User=$(whoami)
 WorkingDirectory=/home/$(whoami)
 Environment="NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}"
-ExecStart=/usr/bin/ngrok http --url=rational-evolving-joey.ngrok-free.app 8000 --log=stdout
+ExecStart=${NGROK_PATH} http --url=rational-evolving-joey.ngrok-free.app 8000 --log=stdout
 Restart=always
 RestartSec=10
 # Keep the service running even if terminal closes

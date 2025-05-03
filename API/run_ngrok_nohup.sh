@@ -32,9 +32,34 @@ mkdir -p logs
 pkill -f ngrok || true
 echo "Killed any existing ngrok processes"
 
+# Find the correct path to ngrok executable
+NGROK_PATH=$(which ngrok)
+if [ -z "$NGROK_PATH" ]; then
+    # Try common locations if 'which' doesn't find it
+    for path in "/usr/bin/ngrok" "/usr/local/bin/ngrok" "/home/$(whoami)/ngrok" "/home/$(whoami)/bin/ngrok" "/snap/bin/ngrok"; do
+        if [ -f "$path" ]; then
+            NGROK_PATH="$path"
+            break
+        fi
+    done
+    
+    # If still not found, ask user
+    if [ -z "$NGROK_PATH" ]; then
+        echo "Could not find ngrok executable. Please enter the full path to ngrok:"
+        read -p "> " NGROK_PATH
+        
+        if [ ! -f "$NGROK_PATH" ]; then
+            echo "Error: $NGROK_PATH does not exist or is not a file."
+            exit 1
+        fi
+    fi
+fi
+
+echo "Using ngrok from: $NGROK_PATH"
+
 # Start ngrok in the background with nohup
 echo "Starting ngrok in the background with nohup..."
-nohup ngrok http --url=rational-evolving-joey.ngrok-free.app 8000 > logs/ngrok.log 2>&1 &
+nohup "$NGROK_PATH" http --url=rational-evolving-joey.ngrok-free.app 8000 > logs/ngrok.log 2>&1 &
 
 # Save the process ID
 echo $! > logs/ngrok.pid
