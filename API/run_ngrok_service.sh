@@ -1,5 +1,12 @@
 #!/bin/bash
-# Script to run ngrok as a background service on EC2
+# Script to run ngrok as a permanent background service on EC2
+# This will keep ngrok running even after you disconnect from the server
+
+# Check if script is run with root privileges
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run as root or with sudo"
+    exit 1
+fi
 
 # Check if ngrok is installed
 if ! command -v ngrok &> /dev/null; then
@@ -7,10 +14,14 @@ if ! command -v ngrok &> /dev/null; then
     exit 1
 fi
 
+# Get the absolute path to the .env file
+ENV_FILE="$(pwd)/.env"
+
 # Check if NGROK_AUTH_TOKEN is set in .env file
-if [ -f ".env" ]; then
+if [ -f "$ENV_FILE" ]; then
     # Source the .env file to get environment variables
-    source .env
+    source "$ENV_FILE"
+    echo "Loaded environment variables from $ENV_FILE"
 fi
 
 # Check if token is set
@@ -32,9 +43,13 @@ Type=simple
 User=$(whoami)
 WorkingDirectory=/home/$(whoami)
 Environment="NGROK_AUTH_TOKEN=${NGROK_AUTH_TOKEN}"
-ExecStart=/usr/local/bin/ngrok http --url=rational-evolving-joey.ngrok-free.app 8000 --log=stdout
+ExecStart=/usr/bin/ngrok http --url=rational-evolving-joey.ngrok-free.app 8000 --log=stdout
 Restart=always
 RestartSec=10
+# Keep the service running even if terminal closes
+KillMode=process
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
