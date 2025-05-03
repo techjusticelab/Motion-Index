@@ -194,6 +194,7 @@
 					</div>
 
 					<!-- Download button -->
+					<!-- Commented out download buttons
 					<div class="m-auto flex flex-row justify-center gap-4 align-middle">
 						<div>
 							<a
@@ -227,9 +228,6 @@
 								href={url}
 								download={docData.file_name}
 								class="mt-4 flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-								target="_blank"
-								rel="noopener noreferrer"
-								on:click={downloadFile}
 								in:scale={{ start: 0.5, duration: 300, delay: 1300, easing: cubicOut }}
 							>
 								<svg
@@ -250,6 +248,7 @@
 							</a>
 						</div>
 					</div>
+					-->
 				</div>
 			</div>
 
@@ -321,11 +320,9 @@
 									This file type cannot be previewed directly in the browser.
 								</p>
 								<a
-									href={docData.s3_uri}
+									href={url}
 									download={docData.file_name}
 									class="mt-4 inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-									target="_blank"
-									rel="noopener noreferrer"
 									in:scale={{ start: 0.98, duration: 700, delay: 1000, easing: cubicOut }}
 								>
 									Download File
@@ -362,11 +359,9 @@
 									{errorMessage}
 								</p>
 								<a
-									href={docData.s3_uri}
+									href={url}
 									download={docData.file_name}
 									class="mt-4 inline-flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-									target="_blank"
-									rel="noopener noreferrer"
 									in:scale={{ start: 0.98, duration: 700, delay: 450, easing: cubicOut }}
 								>
 									Download File
