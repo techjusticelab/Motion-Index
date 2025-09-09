@@ -324,7 +324,7 @@
 						</div>
 					{/if}
 
-					<form class="space-y-4" on:submit|preventDefault={saveMetadata}>
+					<form class="space-y-4" onsubmit={(e) => { e.preventDefault(); saveMetadata(e); }}>
 						{#each Object.entries(currentMetadata) as [key, value], i}
 							{#if key !== 'legal_tags'}
 								<div
@@ -364,7 +364,7 @@
 										<button
 											type="button"
 											class="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-indigo-200 text-indigo-600 hover:bg-indigo-300"
-											on:click={() => removeTag(index)}
+											onclick={() => removeTag(index)}
 										>
 											×
 										</button>
@@ -376,13 +376,13 @@
 									type="text"
 									placeholder="Add a tag"
 									bind:value={tagInput}
-									on:keydown={handleTagKeydown}
+									onkeydown={handleTagKeydown}
 									class="flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
 								/>
 								<button
 									type="button"
 									class="inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none"
-									on:click={addTag}
+									onclick={addTag}
 								>
 									Add
 								</button>
@@ -436,9 +436,9 @@
 					class="dropzone-container {isDragging
 						? 'border-indigo-400 bg-indigo-50'
 						: 'border-gray-300'} rounded-lg border-2 border-dashed p-6 text-center transition duration-300"
-					on:dragover={handleDragOver}
-					on:dragleave={handleDragLeave}
-					on:drop={handleDrop}
+					ondragover={handleDragOver}
+					ondragleave={handleDragLeave}
+					ondrop={handleDrop}
 					in:fly={{ y: 15, duration: 700, delay: 300, easing: cubicOut }}
 				>
 					<div class="space-y-4">
@@ -592,7 +592,7 @@
 							id="file-upload"
 							type="file"
 							accept=".pdf,.docx,.txt"
-							on:change={handleFileChange}
+							onchange={handleFileChange}
 							class="sr-only"
 						/>
 
@@ -605,7 +605,7 @@
 				<div class="mt-6" in:fly={{ y: 10, duration: 600, delay: 600, easing: cubicOut }}>
 					<button
 						class="flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-						on:click={handleFileUpload}
+						onclick={handleFileUpload}
 						disabled={!selectedFile || isUploading}
 						in:scale={{ start: 0.95, duration: 600, delay: 650, easing: backOut }}
 					>
@@ -646,7 +646,7 @@
 							{#each uploadedDocuments as doc, i}
 								<div
 									class="flex cursor-pointer flex-col items-center rounded-lg bg-white p-3 shadow-sm transition-shadow hover:shadow-md"
-									on:click={() => showDocumentDetails(doc.response)}
+									onclick={() => showDocumentDetails(doc.response)}
 									in:fly={{ y: 20, x: 5, duration: 600, delay: 200 + i * 100, easing: cubicOut }}
 								>
 									{#if getFileIcon(doc.type) === 'pdf' || getFileIconByName(doc.name) === 'pdf'}

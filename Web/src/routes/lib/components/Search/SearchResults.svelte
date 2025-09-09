@@ -97,7 +97,7 @@
 				{#each searchResults.hits as document, i}
 					<div
 						class="cursor-pointer rounded-lg border border-gray-100 p-4 shadow-sm transition-all hover:bg-gray-50"
-						on:click={() => openDocumentViewer(document)}
+						onclick={() => openDocumentViewer(document)}
 						in:fly={{ y: 20, duration: 600, delay: 200 + i * 100, easing: cubicOut }}
 					>
 						<div class="mb-2 flex flex-wrap items-start justify-between gap-2">
@@ -253,7 +253,7 @@
 				>
 					<div class="inline-flex rounded-md shadow-sm" aria-label="Pagination">
 						<button
-							on:click={() => goToPage(currentPage + 1)}
+							onclick={() => goToPage(currentPage - 1)}
 							disabled={currentPage === 1 || isLoading}
 							class="relative inline-flex items-center rounded-l-md border border-gray-200 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
 							in:scale={{
@@ -280,7 +280,7 @@
 						{#each Array(Math.min(5, totalPages)) as _, i}
 							{#if totalPages <= 5 || (i < 3 && currentPage <= 3) || (i >= 2 && currentPage > totalPages - 3)}
 								<button
-									on:click={() => goToPage(i + 1)}
+									onclick={() => goToPage(i + 1)}
 									class={`relative inline-flex items-center border px-3 py-2 text-sm font-medium ${currentPage === i + 1 ? 'z-10 border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
 									in:scale={{
 										start: 0.95,
@@ -293,7 +293,7 @@
 								</button>
 							{:else if i === 2 && currentPage > 3 && currentPage < totalPages - 2}
 								<button
-									on:click={() => goToPage(currentPage)}
+									onclick={() => goToPage(currentPage)}
 									class="relative z-10 inline-flex items-center border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700"
 									in:scale={{
 										start: 0.95,
@@ -320,7 +320,7 @@
 						{/each}
 
 						<button
-							on:click={() => goToPage(currentPage + 1)}
+							onclick={() => goToPage(currentPage + 1)}
 							disabled={currentPage === totalPages || isLoading}
 							class="relative inline-flex items-center rounded-r-md border border-gray-200 bg-white px-2 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
 							in:scale={{
@@ -368,7 +368,7 @@
 				</p>
 				<button
 					type="button"
-					on:click={resetFilters}
+					onclick={resetFilters}
 					class="mt-4 rounded-lg bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
 					in:scale={{ start: 0.95, duration: 600, delay: 600, easing: cubicOut }}
 				>

@@ -59,7 +59,7 @@
 					<span class="mr-1 max-w-[200px] truncate">{court}</span>
 					<button
 						type="button"
-						on:click={() => removeCourt(court)}
+						onclick={() => removeCourt(court)}
 						class="ml-1 text-blue-500 hover:text-blue-700"
 					>
 						<svg
@@ -86,8 +86,8 @@
 			type="text"
 			id="court-search"
 			bind:value={courtSearchInput}
-			on:input={filterCourtOptions}
-			on:focus={() => {
+			oninput={filterCourtOptions}
+			onfocus={() => {
 				showCourtDropdown = true;
 				filterCourtOptions();
 			}}
@@ -108,7 +108,7 @@
 						)
 							? 'bg-blue-50'
 							: ''}"
-						on:click={() => {
+						onclick={() => {
 							addCourt(court);
 							showCourtDropdown = false;
 						}}

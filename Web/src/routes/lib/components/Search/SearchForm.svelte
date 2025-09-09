@@ -101,7 +101,7 @@
 		<button
 			type="button"
 			class="flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
-			on:click={toggleSearchHelp}
+			onclick={toggleSearchHelp}
 			in:scale={{ start: 0.95, duration: 500, delay: 300, easing: cubicOut }}
 		>
 			<svg
@@ -143,7 +143,7 @@
 		</div>
 	{/if}
 
-	<form on:submit={handleSearch} class="px-5 pb-5">
+	<form onsubmit={handleSearch} class="px-5 pb-5">
 		<!-- Text Search -->
 		<div class="mb-4" in:fly={{ y: 10, duration: 500, delay: 250, easing: cubicOut }}>
 			<div class="relative">
@@ -230,7 +230,7 @@
 		<!-- Advanced Filters Toggle -->
 		<button
 			type="button"
-			on:click={toggleAdvancedFilters}
+			onclick={toggleAdvancedFilters}
 			class="mb-4 flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
 			in:scale={{ start: 0.95, duration: 500, delay: 450, easing: cubicOut }}
 		>
@@ -402,7 +402,7 @@
 
 			<button
 				type="button"
-				on:click={resetFilters}
+				onclick={resetFilters}
 				class="flex-1 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
 				disabled={isLoading}
 				in:scale={{ start: 0.98, duration: 600, delay: 700, easing: cubicOut }}

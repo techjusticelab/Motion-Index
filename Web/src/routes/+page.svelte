@@ -2,6 +2,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import * as api from './api';
+	
+	let { data } = $props();
+	let { session, user, supabase } = $derived(data);
 	import DocumentViewer from './lib/components/Document/DocumentViewer.svelte';
 	import type {
 		SearchParams,
@@ -18,11 +21,11 @@
 	import { fade } from 'svelte/transition';
 
 	// Document popup state
-	let activeDocument: Document | null = null;
-	let showDocumentPopup = false;
+	let activeDocument = $state<Document | null>(null);
+	let showDocumentPopup = $state(false);
 
 	// State variables
-	let searchParams: SearchParams = {
+	let searchParams = $state({
 		query: '',
 		doc_type: '',
 		case_number: '',
@@ -42,20 +45,20 @@
 		sort_order: 'desc',
 		page: 1,
 		use_fuzzy: false
-	};
+	});
 
-	let searchResults: SearchResponse = { total: 0, hits: [] };
-	let isLoading = false;
-	let error = '';
-	let documentTypes: Record<string, number> = {};
-	let metadataFields: MetadataField[] = [];
-	let documentStats: DocumentStats | null = null;
-	let fieldOptions: Record<string, string[]> = {};
+	let searchResults = $state<SearchResponse>({ total: 0, hits: [] });
+	let isLoading = $state(false);
+	let error = $state('');
+	let documentTypes = $state<Record<string, number>>({});
+	let metadataFields = $state<MetadataField[]>([]);
+	let documentStats = $state<DocumentStats | null>(null);
+	let fieldOptions = $state<Record<string, string[]>>({});
 	// UI state
-	let activeTab = 'search'; // 'search' or 'results'
+	let activeTab = $state('search'); // 'search' or 'results'
 
 	// Pagination
-	let totalPages = 0;
+	let totalPages = $state(0);
 
 	// Fetch initial data
 	onMount(async () => {
@@ -218,7 +221,7 @@
 		<div class="flex overflow-hidden rounded-lg bg-white shadow-sm">
 			<button
 				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'search' ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-				on:click={() => (activeTab = 'search')}
+				onclick={() => (activeTab = 'search')}
 			>
 				<div class="flex items-center justify-center">
 					<svg
@@ -240,7 +243,7 @@
 			</button>
 			<button
 				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'results' ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-700' : 'text-gray-600'}`}
-				on:click={() => (activeTab = 'results')}
+				onclick={() => (activeTab = 'results')}
 			>
 				<div class="flex items-center justify-center">
 					<svg
@@ -296,6 +299,8 @@
 <DocumentViewer
 	docData={activeDocument}
 	isOpen={showDocumentPopup}
+	{supabase}
+	{session}
 	on:close={() => {
 		activeDocument = null;
 		showDocumentPopup = false;

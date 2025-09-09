@@ -59,7 +59,7 @@
 					<span class="mr-1 max-w-[200px] truncate">{judge}</span>
 					<button
 						type="button"
-						on:click={() => removeJudge(judge)}
+						onclick={() => removeJudge(judge)}
 						class="ml-1 text-blue-500 hover:text-blue-700"
 					>
 						<svg
@@ -86,8 +86,8 @@
 			type="text"
 			id="judge-search"
 			bind:value={judgeSearchInput}
-			on:input={filterJudgeOptions}
-			on:focus={() => {
+			oninput={filterJudgeOptions}
+			onfocus={() => {
 				showJudgeDropdown = true;
 				filterJudgeOptions();
 			}}
@@ -108,7 +108,7 @@
 						)
 							? 'bg-blue-50'
 							: ''}"
-						on:click={() => {
+						onclick={() => {
 							addJudge(judge);
 							showJudgeDropdown = false;
 						}}

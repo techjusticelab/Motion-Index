@@ -65,7 +65,7 @@
 			<span class="text-xs text-gray-500 mr-2">{matchAll ? 'Match ALL tags' : 'Match ANY tag'}</span>
 			<button 
 				type="button" 
-				on:click={toggleMatchAll}
+				onclick={toggleMatchAll}
 				class="relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none {matchAll ? 'bg-blue-600' : ''}"
 			>
 				<span 
@@ -83,7 +83,7 @@
 					<span class="mr-1 max-w-[200px] truncate">{Tags}</span>
 					<button
 						type="button"
-						on:click={() => removeTags(Tags)}
+						onclick={() => removeTags(Tags)}
 						class="ml-1 text-blue-500 hover:text-blue-700"
 					>
 						<svg
@@ -110,8 +110,8 @@
 			type="text"
 			id="Tags-search"
 			bind:value={TagsSearchInput}
-			on:input={filterTagsOptions}
-			on:focus={() => {
+			oninput={filterTagsOptions}
+			onfocus={() => {
 				showTagsDropdown = true;
 				filterTagsOptions();
 			}}
@@ -130,7 +130,7 @@
 						class="block w-full px-4 py-2 text-left hover:bg-gray-100 {selectedTags.includes(Tags)
 							? 'bg-blue-50'
 							: ''}"
-						on:click={() => {
+						onclick={() => {
 							addTags(Tags);
 							showTagsDropdown = false;
 						}}
