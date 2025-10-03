@@ -1,0 +1,48 @@
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock ./
+
+# Install dependencies
+RUN yarn install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build application
+RUN yarn build
+
+# Production stage
+FROM node:20-alpine AS production
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S svelte -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder --chown=svelte:nodejs /app/build ./build
+COPY --from=builder --chown=svelte:nodejs /app/package.json ./
+COPY --from=builder --chown=svelte:nodejs /app/node_modules ./node_modules
+
+# Switch to non-root user
+USER svelte
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Start application with dumb-init
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "build"]

@@ -1,0 +1,36 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle with CPDA blue -->
+  <circle cx="96" cy="96" r="96" fill="#1e2d48"/>
+
+  <!-- Legal document stack -->
+  <g>
+    <!-- Back documents -->
+    <rect x="42" y="48" width="84" height="108" rx="6" fill="#fffae6" stroke="#b39800" stroke-width="3"/>
+    <rect x="48" y="42" width="84" height="108" rx="6" fill="#fffae6" stroke="#b39800" stroke-width="3"/>
+
+    <!-- Front document -->
+    <rect x="54" y="36" width="84" height="108" rx="6" fill="#fffae6" stroke="#b39800" stroke-width="6"/>
+
+    <!-- Document lines representing text -->
+    <line x1="66" y1="60" x2="126" y2="60" stroke="#1e2d48" stroke-width="3"/>
+    <line x1="66" y1="72" x2="114" y2="72" stroke="#1e2d48" stroke-width="3"/>
+    <line x1="66" y1="84" x2="126" y2="84" stroke="#1e2d48" stroke-width="3"/>
+    <line x1="66" y1="96" x2="108" y2="96" stroke="#1e2d48" stroke-width="3"/>
+    <line x1="66" y1="108" x2="126" y2="108" stroke="#1e2d48" stroke-width="3"/>
+    <line x1="66" y1="120" x2="120" y2="120" stroke="#1e2d48" stroke-width="3"/>
+
+    <!-- Legal scales icon in bottom right -->
+    <g transform="translate(102, 108) scale(4.8)">
+      <!-- Scale base -->
+      <line x1="2" y1="0" x2="2" y2="6" stroke="#b39800" stroke-width="0.8"/>
+      <!-- Scale beam -->
+      <line x1="0" y1="2" x2="4" y2="2" stroke="#b39800" stroke-width="0.6"/>
+      <!-- Left scale -->
+      <circle cx="0.5" cy="2.5" r="1" fill="none" stroke="#b39800" stroke-width="0.4"/>
+      <!-- Right scale -->
+      <circle cx="3.5" cy="2.5" r="1" fill="none" stroke="#b39800" stroke-width="0.4"/>
+      <!-- Base -->
+      <rect x="1" y="6" width="2" height="0.8" fill="#b39800"/>
+    </g>
+  </g>
+</svg>

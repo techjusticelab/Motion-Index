@@ -28,10 +28,10 @@
 	}
 </script>
 
-<div class="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+<div class="flex min-h-screen flex-col justify-center bg-neutral-50 py-12 sm:px-6 lg:px-8">
 	<div class="sm:mx-auto sm:w-full sm:max-w-md">
-		<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Reset your password</h2>
-		<p class="mt-2 text-center text-sm text-gray-600">
+		<h2 class="mt-6 text-center text-3xl font-extrabold text-neutral-900">Reset your password</h2>
+		<p class="mt-2 text-center text-sm text-neutral-600">
 			Enter your email and we'll send you a password reset link
 		</p>
 	</div>
@@ -87,7 +87,7 @@
 					{/if}
 
 					<div>
-						<label for="email" class="block text-sm font-medium text-gray-700">
+						<label for="email" class="block text-sm font-medium text-neutral-700">
 							Email address
 						</label>
 						<div class="mt-1">
@@ -98,7 +98,7 @@
 								autocomplete="email"
 								required
 								bind:value={email}
-								class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+								class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 							/>
 						</div>
 					</div>
@@ -107,7 +107,7 @@
 						<button
 							type="submit"
 							disabled={loading}
-							class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							class="flex w-full justify-center rounded-md border border-transparent bg-primary-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{#if loading}
 								<div
@@ -122,7 +122,7 @@
 				</form>
 
 				<div class="mt-6 text-center text-sm">
-					<a href="/auth/login" class="font-medium text-indigo-600 hover:text-indigo-500">
+					<a href="/auth/login" class="font-medium text-primary-900 hover:text-primary-800">
 						Back to login
 					</a>
 				</div>

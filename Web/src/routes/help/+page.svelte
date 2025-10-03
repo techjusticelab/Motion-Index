@@ -4,19 +4,19 @@
 </script>
 
 <div
-	class="min-h-screen bg-gray-50 px-4 py-12 sm:px-6 lg:px-8"
+	class="min-h-screen bg-neutral-50 px-4 py-12 sm:px-6 lg:px-8"
 	in:fade={{ duration: 600, easing: cubicOut }}
 	out:fade
 >
 	<div class="mx-auto max-w-3xl" in:fly={{ y: 20, duration: 700, easing: cubicOut }}>
 		<div class="text-center" in:fly={{ y: -10, duration: 700, delay: 200, easing: cubicOut }}>
 			<h1
-				class="text-3xl font-extrabold text-gray-900 sm:text-4xl"
+				class="text-3xl font-extrabold text-neutral-900 sm:text-4xl"
 				in:slide={{ duration: 600, delay: 300 }}
 			>
 				Help & Support
 			</h1>
-			<p class="mt-3 text-lg text-gray-500" in:fade={{ duration: 600, delay: 400 }}>
+			<p class="mt-3 text-lg text-neutral-500" in:fade={{ duration: 600, delay: 400 }}>
 				Get assistance with Motion Index or learn how you can contribute to the project
 			</p>
 		</div>
@@ -31,9 +31,9 @@
 					class="flex items-center justify-center"
 					in:scale={{ start: 0.95, duration: 600, delay: 700, easing: elasticOut }}
 				>
-					<div class="rounded-full bg-indigo-100 p-3">
+					<div class="rounded-full bg-primary-100 p-3">
 						<svg
-							class="h-6 w-6 text-indigo-600"
+							class="h-6 w-6 text-primary-600"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
 							viewBox="0 0 24 24"
@@ -49,12 +49,12 @@
 					</div>
 				</div>
 				<h2
-					class="mt-4 text-center text-xl font-bold text-gray-900"
+					class="mt-4 text-center text-xl font-bold text-neutral-900"
 					in:slide={{ duration: 500, delay: 800 }}
 				>
 					Contact Us
 				</h2>
-				<p class="mt-2 text-center text-gray-500" in:slide={{ duration: 500, delay: 900 }}>
+				<p class="mt-2 text-center text-neutral-500" in:slide={{ duration: 500, delay: 900 }}>
 					Need help with Motion Index? Our team is here to assist you.
 				</p>
 				<div
@@ -64,7 +64,7 @@
 					<div class="flex items-center justify-center">
 						<a
 							href="mailto:info@techjusticelab.org"
-							class="rounded-md bg-indigo-50 px-4 py-2 text-indigo-700 hover:bg-indigo-100"
+							class="rounded-md bg-primary-50 px-4 py-2 text-primary-700 hover:bg-primary-100"
 						>
 							info@techjusticelab.org
 						</a>
@@ -77,7 +77,7 @@
 							href="https://techjusticelab.org"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="rounded-md bg-indigo-50 px-4 py-2 text-indigo-700 hover:bg-indigo-100"
+							class="rounded-md bg-primary-50 px-4 py-2 text-primary-700 hover:bg-primary-100"
 						>
 							techjusticelab.org
 						</a>
@@ -94,9 +94,9 @@
 					class="flex items-center justify-center"
 					in:scale={{ start: 0.95, duration: 600, delay: 700, easing: elasticOut }}
 				>
-					<div class="rounded-full bg-indigo-100 p-3">
+					<div class="rounded-full bg-primary-100 p-3">
 						<svg
-							class="h-6 w-6 text-indigo-600"
+							class="h-6 w-6 text-primary-600"
 							xmlns="http://www.w3.org/2000/svg"
 							viewBox="0 0 24 24"
 							fill="currentColor"
@@ -110,12 +110,12 @@
 					</div>
 				</div>
 				<h2
-					class="mt-4 text-center text-xl font-bold text-gray-900"
+					class="mt-4 text-center text-xl font-bold text-neutral-900"
 					in:slide={{ duration: 500, delay: 800 }}
 				>
 					Contribute to Motion Index
 				</h2>
-				<p class="mt-2 text-center text-gray-500" in:slide={{ duration: 500, delay: 900 }}>
+				<p class="mt-2 text-center text-neutral-500" in:slide={{ duration: 500, delay: 900 }}>
 					Motion Index is an open-source project. We welcome contributions from developers of all
 					skill levels.
 				</p>
@@ -127,7 +127,7 @@
 						href="https://github.com/TheArctesian/Motion-Index"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+						class="flex w-full items-center justify-center rounded-md border border-transparent bg-primary-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:ring-offset-2"
 						in:scale={{ start: 0.97, duration: 600, delay: 1100, easing: backOut }}
 					>
 						<svg
@@ -151,7 +151,7 @@
 		<!-- FAQ Section -->
 		<div class="mt-16" in:fly={{ y: 20, duration: 700, delay: 1200, easing: cubicOut }}>
 			<h2
-				class="text-center text-2xl font-bold text-gray-900"
+				class="text-center text-2xl font-bold text-neutral-900"
 				in:slide={{ duration: 500, delay: 1300 }}
 			>
 				Frequently Asked Questions
@@ -163,12 +163,12 @@
 						in:fly={{ y: 15, duration: 600, delay: 1400 + i * 100, easing: cubicOut }}
 					>
 						<h3
-							class="text-lg font-medium text-gray-900"
+							class="text-lg font-medium text-neutral-900"
 							in:slide={{ duration: 500, delay: 1450 + i * 100 }}
 						>
 							{faq.question}
 						</h3>
-						<p class="mt-2 text-gray-600" in:fade={{ duration: 500, delay: 1500 + i * 100 }}>
+						<p class="mt-2 text-neutral-600" in:fade={{ duration: 500, delay: 1500 + i * 100 }}>
 							{faq.answer}
 						</p>
 					</div>
@@ -179,7 +179,7 @@
 		<!-- Project Structure -->
 		<div class="mt-16" in:fly={{ y: 20, duration: 700, delay: 1800, easing: cubicOut }}>
 			<h2
-				class="text-center text-2xl font-bold text-gray-900"
+				class="text-center text-2xl font-bold text-neutral-900"
 				in:slide={{ duration: 500, delay: 1900 }}
 			>
 				Project Structure
@@ -188,7 +188,7 @@
 				class="mt-8 overflow-hidden rounded-lg bg-white p-6 shadow"
 				in:scale={{ start: 0.97, duration: 600, delay: 2000, easing: cubicOut }}
 			>
-				<p class="mb-4 text-gray-600" in:fade={{ duration: 500, delay: 2100 }}>
+				<p class="mb-4 text-neutral-600" in:fade={{ duration: 500, delay: 2100 }}>
 					Motion Index is organized into the following main folders:
 				</p>
 				<ul class="space-y-4">
@@ -199,7 +199,7 @@
 						>
 							<div class="mr-3 mt-1 flex-shrink-0">
 								<svg
-									class="h-5 w-5 text-indigo-500"
+									class="h-5 w-5 text-primary-500"
 									xmlns="http://www.w3.org/2000/svg"
 									viewBox="0 0 20 20"
 									fill="currentColor"
@@ -208,8 +208,8 @@
 								</svg>
 							</div>
 							<div>
-								<p class="font-medium text-gray-900">{folder.name}</p>
-								<p class="text-sm text-gray-600">{folder.description}</p>
+								<p class="font-medium text-neutral-900">{folder.name}</p>
+								<p class="text-sm text-neutral-600">{folder.description}</p>
 							</div>
 						</li>
 					{/each}
@@ -219,13 +219,13 @@
 
 		<!-- Footer -->
 		<div class="mt-16 text-center" in:fade={{ duration: 600, delay: 2700 }}>
-			<p class="text-gray-500">
+			<p class="text-neutral-500">
 				Motion Index is a project by <a
 					href="https://techjusticelab.org"
-					class="font-medium text-indigo-600 hover:text-indigo-500">Tech Justice Lab</a
+					class="font-medium text-primary-600 hover:text-primary-500">Tech Justice Lab</a
 				>
 			</p>
-			<p class="mt-1 text-sm text-gray-400" in:fade={{ duration: 600, delay: 2800 }}>
+			<p class="mt-1 text-sm text-neutral-400" in:fade={{ duration: 600, delay: 2800 }}>
 				We're dedicated to improving access to justice through technology
 			</p>
 		</div>

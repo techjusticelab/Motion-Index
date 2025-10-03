@@ -1,23 +1,23 @@
 <!-- SearchPage.svelte -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as api from './api';
+	import * as api from '$lib/api';
 	
 	let { data } = $props();
 	let { session, user, supabase } = $derived(data);
-	import DocumentViewer from './lib/components/Document/DocumentViewer.svelte';
+	import DocumentViewer from '$lib/components/document/DocumentViewer.svelte';
 	import type {
 		SearchParams,
 		SearchResponse,
 		Document,
 		MetadataField,
 		DocumentStats
-	} from './utils/search_types';
+	} from '$lib/types';
 
-	import SearchForm from './lib/components/Search/SearchForm.svelte';
+	import SearchForm from '$lib/components/search/SearchForm.svelte';
 
-	import SearchResults from './lib/components/Search/SearchResults.svelte';
-	import { formatDate } from './utils/utils';
+	import SearchResults from '$lib/components/search/SearchResults.svelte';
+	import { formatDate } from '$lib/utils/utils';
 	import { fade } from 'svelte/transition';
 
 	// Document popup state
@@ -114,7 +114,7 @@
 				delete cleanParams.date_range;
 			}
 
-			searchResults = await api.searchDocuments(cleanParams);
+			searchResults = await api.searchDocuments(cleanParams, session);
 			console.log('Search results:', searchResults);
 			totalPages = Math.ceil(searchResults.total / searchParams.size);
 			console.log('Total pages:', totalPages);
@@ -182,28 +182,28 @@
 
 <div class="max-w-7/8 container mx-auto px-4 py-6" transition:fade>
 	<!-- Header -->
-	<div class="mb-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 p-6 shadow-lg">
+	<div class="mb-6 rounded-xl bg-gradient-to-r from-primary-800 to-primary-900 p-6 shadow-lg">
 		<div class="flex flex-col items-start justify-between md:flex-row md:items-center">
 			<div class="mb-6 md:mb-0">
 				<h1 class="mb-2 text-2xl font-bold text-white md:text-3xl">Motion Index</h1>
-				<p class="text-sm text-blue-100 md:text-base">Search legal documents with precision</p>
+				<p class="text-sm text-primary-100 md:text-base">Search legal documents with precision</p>
 			</div>
 
 			{#if documentStats}
 				<div class="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:w-auto">
 					<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
-						<p class="text-xs text-blue-100">Documents</p>
+						<p class="text-xs text-primary-100">Documents</p>
 						<p class="text-xl font-semibold text-white">{documentStats.total_documents}</p>
 					</div>
 
 					<!-- <div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
-						<p class="text-xs text-blue-100">Types</p>
+						<p class="text-xs text-primary-100">Types</p>
 						<p class="text-xl font-semibold text-white">{Object.keys(documentTypes).length}</p>
 					</div> -->
 
 					{#if documentStats.date_range}
 						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
-							<p class="text-xs text-blue-100">Date Range</p>
+							<p class="text-xs text-primary-100">Date Range</p>
 							<p class="truncate text-sm font-medium text-white">
 								{formatDate(documentStats.date_range.oldest)} - {formatDate(
 									documentStats.date_range.newest
@@ -220,7 +220,7 @@
 	<div class="mb-4 lg:hidden">
 		<div class="flex overflow-hidden rounded-lg bg-white shadow-sm">
 			<button
-				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'search' ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-700' : 'text-gray-600'}`}
+				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'search' ? 'border-b-2 border-primary-900 bg-primary-50 text-primary-900' : 'text-neutral-600'}`}
 				onclick={() => (activeTab = 'search')}
 			>
 				<div class="flex items-center justify-center">
@@ -242,7 +242,7 @@
 				</div>
 			</button>
 			<button
-				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'results' ? 'border-b-2 border-blue-600 bg-blue-50 text-blue-700' : 'text-gray-600'}`}
+				class={`flex-1 py-3 text-center font-medium transition-all ${activeTab === 'results' ? 'border-b-2 border-primary-900 bg-primary-50 text-primary-900' : 'text-neutral-600'}`}
 				onclick={() => (activeTab = 'results')}
 			>
 				<div class="flex items-center justify-center">
@@ -301,6 +301,7 @@
 	isOpen={showDocumentPopup}
 	{supabase}
 	{session}
+	{user}
 	on:close={() => {
 		activeDocument = null;
 		showDocumentPopup = false;

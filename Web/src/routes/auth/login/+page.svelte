@@ -28,21 +28,14 @@
 		}
 	}
 
-	// Import our new auth system
-import { setAuth, clearAuth } from '$lib/auth';
-
-const handleSubmit = async (event: SubmitEvent) => {
-		// Prevent default form submission to handle it manually
+	const handleSubmit = async (event: SubmitEvent) => {
 		event.preventDefault();
 
 		try {
 			loading = true;
 			error = null;
-			
-			// First clear any existing auth data
-			clearAuth();
 
-			// Try to sign in with Supabase
+			// Use the Supabase client from page data
 			const { data, error: err } = await $page.data.supabase.auth.signInWithPassword({
 				email,
 				password
@@ -50,48 +43,31 @@ const handleSubmit = async (event: SubmitEvent) => {
 
 			if (err) throw err;
 
-			// If successful, set up our custom auth
-			if (data?.session?.access_token && data?.user) {
-				// Create a user object for our auth system
-				const user = {
-					id: data.user.id,
-					email: data.user.email || email,
-					name: data.user.user_metadata?.name || 'User'
-				};
-				
-				// Set auth with our custom system
-				setAuth(user, data.session.access_token);
-				console.log('Login successful and auth state set:', user);
-				
-				// Make sure to wait for the invalidation to complete
+			if (data?.session) {
+				console.log('Login successful');
+
+				// Invalidate all cached data to refresh auth state
 				await invalidateAll();
 
 				// Redirect to the requested page or home
 				const redirectTo = $page.url.searchParams.get('redirectTo') || '/';
-				console.log('Redirecting to:', redirectTo);
-				
-				// Use a slight delay before redirecting
-				setTimeout(() => {
-					goto(redirectTo);
-				}, 100);
+				goto(redirectTo);
 			} else {
 				throw new Error('Login successful but session data is missing');
 			}
 		} catch (err: any) {
 			console.error('Login error:', err);
 			error = err.message || 'Failed to sign in';
-			// Ensure auth is cleared on error
-			clearAuth();
 		} finally {
 			loading = false;
 		}
 	};
 </script>
 
-<div class="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+<div class="flex min-h-screen flex-col justify-center bg-neutral-50 py-12 sm:px-6 lg:px-8">
 	<div class="sm:mx-auto sm:w-full sm:max-w-md">
-		<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to Motion Index</h2>
-		<p class="mt-2 text-center text-sm text-gray-600">Access your legal documents repository</p>
+		<h2 class="mt-6 text-center text-3xl font-extrabold text-neutral-900">Sign in to Motion Index</h2>
+		<p class="mt-2 text-center text-sm text-neutral-600">Access your legal documents repository</p>
 	</div>
 
 	<div
@@ -128,7 +104,7 @@ const handleSubmit = async (event: SubmitEvent) => {
 				{/if}
 
 				<div>
-					<label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+					<label for="email" class="block text-sm font-medium text-neutral-700">Email address</label>
 					<div class="mt-1">
 						<input
 							id="email"
@@ -137,13 +113,13 @@ const handleSubmit = async (event: SubmitEvent) => {
 							autocomplete="email"
 							required
 							bind:value={email}
-							class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+							class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 						/>
 					</div>
 				</div>
 
 				<div>
-					<label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+					<label for="password" class="block text-sm font-medium text-neutral-700">Password</label>
 					<div class="mt-1">
 						<input
 							id="password"
@@ -152,14 +128,14 @@ const handleSubmit = async (event: SubmitEvent) => {
 							autocomplete="current-password"
 							required
 							bind:value={password}
-							class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+							class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 						/>
 					</div>
 				</div>
 
 				<div class="flex items-center justify-between">
 					<div class="text-sm">
-						<a href="/auth/forgot" class="font-medium text-indigo-600 hover:text-indigo-500">
+						<a href="/auth/forgot" class="font-medium text-primary-900 hover:text-primary-800">
 							Forgot your password?
 						</a>
 					</div>
@@ -169,7 +145,7 @@ const handleSubmit = async (event: SubmitEvent) => {
 					<button
 						type="submit"
 						disabled={loading}
-						class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex w-full justify-center rounded-md border border-transparent bg-primary-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{#if loading}
 							<div
@@ -186,17 +162,17 @@ const handleSubmit = async (event: SubmitEvent) => {
 			<div class="mt-6">
 				<div class="relative">
 					<div class="absolute inset-0 flex items-center">
-						<div class="w-full border-t border-gray-300"></div>
+						<div class="w-full border-t border-neutral-300"></div>
 					</div>
 					<div class="relative flex justify-center text-sm">
-						<span class="bg-white px-2 text-gray-500">Don't have an account?</span>
+						<span class="bg-white px-2 text-neutral-500">Don't have an account?</span>
 					</div>
 				</div>
 
 				<div class="mt-6">
 					<a
 						href="/auth/register"
-						class="flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+						class="flex w-full justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:ring-offset-2"
 					>
 						Register
 					</a>

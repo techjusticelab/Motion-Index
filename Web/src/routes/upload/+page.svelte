@@ -1,21 +1,30 @@
 <script lang="ts">
-	import { categoriseDocument, updateDocumentMetadata, type Document } from '../api';
+	import { categoriseDocument, updateDocumentMetadata, createRedactedDocument, analyzeRedactionsOnly, type Document } from '$lib/api';
+	import { RedactionAnalyzer } from '$lib/components/upload';
 	import { onMount } from 'svelte';
 	import { fade, fly, slide, scale } from 'svelte/transition';
 	import { cubicOut, quintOut, elasticOut, backOut } from 'svelte/easing';
 
-	let selectedFile: File | null = null;
-	let uploadStatus: string = '';
-	let documentResponse: Document | null = null;
-	let fileInputLabel: string = 'Drag and drop your file here or click to browse';
-	let isDragging: boolean = false;
-	let uploadedDocuments: Array<{ name: string; type: string; response: Document }> = [];
-	let isUploading: boolean = false;
-	let isUpdatingMetadata: boolean = false; // New state for metadata update loading
-	let metadataUpdateSuccess: boolean | null = null; // Track success/failure state
+	let { data } = $props();
+	let { session, user, supabase } = $derived(data);
+
+	let selectedFile = $state<File | null>(null);
+	let uploadStatus = $state('');
+	let documentResponse = $state<Document | null>(null);
+	let fileInputLabel = $state('Drag and drop your file here or click to browse');
+	let isDragging = $state(false);
+	let uploadedDocuments = $state<Array<{ name: string; type: string; response: Document }>>([]);
+	let isUploading = $state(false);
+	let isUpdatingMetadata = $state(false); // New state for metadata update loading
+	let metadataUpdateSuccess = $state<boolean | null>(null); // Track success/failure state
+
+	// Redaction state
+	let redactionAnalysis = $state<any>(null);
+	let showRedactionResults = $state(false);
+	let isCreatingRedactedDocument = $state(false);
 
 	// Metadata panel state
-	let currentMetadata: Document['metadata'] = {
+	let currentMetadata = $state<Document['metadata']>({
 		document_name: '',
 		subject: '',
 		status: '',
@@ -26,10 +35,10 @@
 		judge: '',
 		court: '',
 		legal_tags: []
-	};
-	let legalTags: string[] = [];
-	let tagInput = '';
-	let currentDocumentId = '';
+	});
+	let legalTags = $state<string[]>([]);
+	let tagInput = $state('');
+	let currentDocumentId = $state('');
 
 	// Timer to reset success/failure message
 	let successMessageTimer: ReturnType<typeof setTimeout> | null = null;
@@ -80,7 +89,7 @@
 			};
 
 			// Call the API to update metadata
-			const response = await updateDocumentMetadata(currentDocumentId, metadataToUpdate);
+			const response = await updateDocumentMetadata(currentDocumentId, metadataToUpdate, session);
 
 			// Update the document in our list
 			uploadedDocuments = uploadedDocuments.map((doc) => {
@@ -154,6 +163,67 @@
 		initializeMetadataForm(document);
 	}
 
+	// Handle redaction-only testing (bypasses Elasticsearch requirement)
+	async function handleRedactionOnlyTest() {
+		console.log('Testing redaction only for file:', selectedFile);
+		if (!selectedFile) {
+			uploadStatus = 'Please select a PDF file to test redaction.';
+			return;
+		}
+
+		if (!selectedFile.name.toLowerCase().endsWith('.pdf')) {
+			uploadStatus = 'Only PDF files can be analyzed for redactions.';
+			return;
+		}
+
+		isUploading = true;
+		uploadStatus = 'Analyzing PDF for sensitive information...';
+
+		try {
+			const response = await analyzeRedactionsOnly(selectedFile, session);
+
+			// Handle redaction analysis response
+			if (response.redaction_analysis) {
+				redactionAnalysis = response.redaction_analysis;
+				showRedactionResults = true;
+				uploadStatus = `Redaction analysis completed! Found ${response.redaction_analysis.redactions_found} potential redactions.`;
+			} else {
+				uploadStatus = 'Redaction analysis completed - no sensitive information detected.';
+			}
+
+			console.log('Redaction analysis response:', response);
+		} catch (error) {
+			uploadStatus = 'Failed to analyze document for redactions. Please try again.';
+			console.error('Error analyzing redactions:', error);
+		} finally {
+			isUploading = false;
+		}
+	}
+
+	// Handle creating redacted document
+	async function handleCreateRedactedDocument(event?: CustomEvent<{ documentId: string }>) {
+		const docId = event?.detail?.documentId || documentResponse?.id;
+		
+		if (!docId) {
+			uploadStatus = 'No document available for redaction';
+			return;
+		}
+
+		isCreatingRedactedDocument = true;
+		uploadStatus = 'Creating redacted document...';
+
+		try {
+			const response = await createRedactedDocument(docId, true, session);
+			uploadStatus = 'Redacted document created successfully!';
+			console.log('Redacted document created:', response);
+		} catch (error) {
+			uploadStatus = 'Failed to create redacted document. Please try again.';
+			console.error('Error creating redacted document:', error);
+		} finally {
+			isCreatingRedactedDocument = false;
+		}
+	}
+
 	async function handleFileUpload() {
 		console.log('Selected file:', selectedFile);
 		if (!selectedFile) {
@@ -166,10 +236,19 @@
 
 		try {
 			// Call the actual API endpoint
-			const response = await categoriseDocument(selectedFile);
+			const response = await categoriseDocument(selectedFile, session);
 
 			// Use the full document response
 			documentResponse = response.document;
+
+			// Handle redaction analysis if present
+			if (response.redaction_analysis) {
+				redactionAnalysis = response.redaction_analysis;
+				showRedactionResults = true;
+				uploadStatus = `Document categorised successfully! Found ${response.redaction_analysis.redactions_found} potential redactions.`;
+			} else {
+				uploadStatus = 'Document categorised successfully!';
+			}
 
 			// Initialize the metadata form
 			initializeMetadataForm(response.document);
@@ -187,8 +266,6 @@
 			// Reset the file input
 			selectedFile = null;
 			fileInputLabel = 'Drag and drop your file here or click to browse';
-
-			uploadStatus = 'Document categorised successfully!';
 		} catch (error) {
 			uploadStatus = 'Failed to categorise document. Please try again.';
 			console.error(error);
@@ -274,11 +351,11 @@
 			<!-- Metadata panel (left side) - shown when document is uploaded -->
 			{#if documentResponse}
 				<div
-					class="w-full border-r border-gray-200 bg-gray-50 p-6 md:w-2/5"
+					class="w-full border-r border-neutral-200 bg-neutral-50 p-6 md:w-2/5"
 					in:fly={{ x: -20, duration: 700, easing: quintOut }}
 				>
 					<h2
-						class="mb-4 text-xl font-semibold text-gray-800"
+						class="mb-4 text-xl font-semibold text-neutral-800"
 						in:slide={{ duration: 500, delay: 100 }}
 					>
 						Document Metadata
@@ -331,14 +408,14 @@
 									class="form-group"
 									in:fly={{ y: 10, delay: i * 50, duration: 300, easing: cubicOut }}
 								>
-									<label for={key} class="mb-1 block text-sm font-medium text-gray-700">
+									<label for={key} class="mb-1 block text-sm font-medium text-neutral-700">
 										{key.replace(/_/g, ' ').replace(/(?:^|\s)\S/g, (a) => a.toUpperCase())}
 									</label>
 									<input
 										type="text"
 										id={key}
 										bind:value={currentMetadata[key]}
-										class="w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+										class="w-full rounded-md border border-neutral-300 p-2 shadow-sm focus:border-primary-900 focus:ring-primary-900"
 									/>
 								</div>
 							{/if}
@@ -353,17 +430,17 @@
 								easing: cubicOut
 							}}
 						>
-							<label class="mb-1 block text-sm font-medium text-gray-700">Legal Tags</label>
+							<label class="mb-1 block text-sm font-medium text-neutral-700">Legal Tags</label>
 							<div class="mb-2 flex flex-wrap gap-2">
 								{#each legalTags as tag, index}
 									<div
-										class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-800"
+										class="inline-flex items-center rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-800"
 										in:scale={{ start: 0.9, duration: 300, delay: index * 30 }}
 									>
 										{tag}
 										<button
 											type="button"
-											class="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-indigo-200 text-indigo-600 hover:bg-indigo-300"
+											class="ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-200 text-primary-700 hover:bg-primary-300"
 											onclick={() => removeTag(index)}
 										>
 											×
@@ -377,11 +454,11 @@
 									placeholder="Add a tag"
 									bind:value={tagInput}
 									onkeydown={handleTagKeydown}
-									class="flex-1 rounded-md border border-gray-300 p-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+									class="flex-1 rounded-md border border-neutral-300 p-2 shadow-sm focus:border-primary-900 focus:ring-primary-900"
 								/>
 								<button
 									type="button"
-									class="inline-flex justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none"
+									class="inline-flex justify-center rounded-md bg-primary-900 px-3 py-2 text-sm font-medium text-white hover:bg-primary-800 focus:outline-none"
 									onclick={addTag}
 								>
 									Add
@@ -391,7 +468,7 @@
 
 						<button
 							type="submit"
-							class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+							class="inline-flex w-full justify-center rounded-md bg-primary-900 px-4 py-2 text-sm font-medium text-white hover:bg-primary-800 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
 							in:scale={{
 								start: 0.95,
 								duration: 400,
@@ -413,6 +490,17 @@
 						</button>
 					</form>
 				</div>
+
+				<!-- Redaction Analysis Panel -->
+				<RedactionAnalyzer
+					analysis={redactionAnalysis}
+					documentId={documentResponse?.id}
+					isCreatingRedacted={isCreatingRedactedDocument}
+					visible={showRedactionResults}
+					class="mt-6"
+					on:createRedacted={handleCreateRedactedDocument}
+					on:dismiss={() => showRedactionResults = false}
+				/>
 			{/if}
 
 			<!-- Upload area (right side or full width if no document) -->
@@ -426,7 +514,7 @@
 				}}
 			>
 				<h1
-					class="mb-6 text-center text-2xl font-bold text-indigo-700"
+					class="mb-6 text-center text-2xl font-bold text-primary-800"
 					in:slide={{ duration: 600, delay: 200 }}
 				>
 					Upload Document
@@ -434,8 +522,8 @@
 
 				<div
 					class="dropzone-container {isDragging
-						? 'border-indigo-400 bg-indigo-50'
-						: 'border-gray-300'} rounded-lg border-2 border-dashed p-6 text-center transition duration-300"
+						? 'border-primary-400 bg-primary-50'
+						: 'border-neutral-300'} rounded-lg border-2 border-dashed p-6 text-center transition duration-300"
 					ondragover={handleDragOver}
 					ondragleave={handleDragLeave}
 					ondrop={handleDrop}
@@ -450,7 +538,7 @@
 						>
 							{#if selectedFile}
 								<div
-									class="mb-3 rounded-lg bg-gray-50 p-4 shadow-sm"
+									class="mb-3 rounded-lg bg-neutral-50 p-4 shadow-sm"
 									in:fly={{ y: 10, duration: 600, easing: cubicOut }}
 								>
 									{#if getFileIconByName(selectedFile.name) === 'pdf'}
@@ -481,7 +569,7 @@
 									{:else if getFileIconByName(selectedFile.name) === 'word'}
 										<div class="flex justify-center">
 											<div
-												class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-500"
+												class="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-600"
 												in:scale={{ start: 0.8, duration: 700, delay: 150, easing: elasticOut }}
 											>
 												<svg
@@ -506,7 +594,7 @@
 									{:else if getFileIconByName(selectedFile.name) === 'text'}
 										<div class="flex justify-center">
 											<div
-												class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+												class="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
 												in:scale={{ start: 0.8, duration: 700, delay: 150, easing: elasticOut }}
 											>
 												<svg
@@ -531,7 +619,7 @@
 									{:else}
 										<div class="flex justify-center">
 											<div
-												class="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100 text-purple-500"
+												class="flex h-16 w-16 items-center justify-center rounded-full bg-secondary-100 text-secondary-700"
 												in:scale={{ start: 0.8, duration: 700, delay: 150, easing: elasticOut }}
 											>
 												<svg
@@ -552,19 +640,19 @@
 										</div>
 									{/if}
 									<div
-										class="mt-2 text-sm font-medium text-gray-700"
+										class="mt-2 text-sm font-medium text-neutral-700"
 										in:slide={{ duration: 500, delay: 200 }}
 									>
 										{selectedFile.name}
 									</div>
-									<div class="text-xs text-gray-500" in:slide={{ duration: 500, delay: 250 }}>
+									<div class="text-xs text-neutral-500" in:slide={{ duration: 500, delay: 250 }}>
 										{(selectedFile.size / 1024).toFixed(1)} KB
 									</div>
 								</div>
 							{:else}
 								<div class="flex justify-center">
 									<div
-										class="flex h-16 w-16 items-center justify-center text-indigo-500"
+										class="flex h-16 w-16 items-center justify-center text-primary-600"
 										in:scale={{ start: 0.9, duration: 700, delay: 450, easing: elasticOut }}
 									>
 										<svg
@@ -583,7 +671,7 @@
 										</svg>
 									</div>
 								</div>
-								<div class="mt-3 text-gray-600" in:slide={{ duration: 500, delay: 500 }}>
+								<div class="mt-3 text-neutral-600" in:slide={{ duration: 500, delay: 500 }}>
 									{fileInputLabel}
 								</div>
 							{/if}
@@ -596,15 +684,16 @@
 							class="sr-only"
 						/>
 
-						<div class="text-xs text-gray-500" in:fade={{ duration: 600, delay: 550 }}>
+						<div class="text-xs text-neutral-500" in:fade={{ duration: 600, delay: 550 }}>
 							Supported files: PDF, DOCX, TXT
 						</div>
 					</div>
 				</div>
 
-				<div class="mt-6" in:fly={{ y: 10, duration: 600, delay: 600, easing: cubicOut }}>
+				<div class="mt-6 space-y-3" in:fly={{ y: 10, duration: 600, delay: 600, easing: cubicOut }}>
+					<!-- Regular upload button -->
 					<button
-						class="flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex w-full items-center justify-center rounded-lg bg-primary-900 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
 						onclick={handleFileUpload}
 						disabled={!selectedFile || isUploading}
 						in:scale={{ start: 0.95, duration: 600, delay: 650, easing: backOut }}
@@ -619,6 +708,25 @@
 							</div>
 						{:else}
 							Upload and Categorise
+						{/if}
+					</button>
+
+					<!-- Redaction test button -->
+					<button
+						class="flex w-full items-center justify-center rounded-lg bg-orange-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+						onclick={handleRedactionOnlyTest}
+						disabled={!selectedFile || isUploading || !selectedFile?.name?.toLowerCase().endsWith('.pdf')}
+						in:scale={{ start: 0.95, duration: 600, delay: 700, easing: backOut }}
+					>
+						{#if isUploading}
+							<div class="flex items-center">
+								<div
+									class="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+								></div>
+								<span>Analyzing...</span>
+							</div>
+						{:else}
+							🔍 Test Redaction Analysis (PDF Only)
 						{/if}
 					</button>
 				</div>
@@ -636,7 +744,7 @@
 
 				{#if uploadedDocuments.length > 0}
 					<div
-						class="mt-8 border-t border-gray-200 pt-6"
+						class="mt-8 border-t border-neutral-200 pt-6"
 						in:fly={{ y: 20, duration: 700, easing: cubicOut }}
 					>
 						<h2 class="mb-4 text-lg font-semibold" in:slide={{ duration: 600, delay: 100 }}>
@@ -682,7 +790,7 @@
 									{:else if getFileIcon(doc.type) === 'word' || getFileIconByName(doc.name) === 'word'}
 										<div class="flex justify-center">
 											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-500"
+												class="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100 text-primary-600"
 												in:scale={{
 													start: 0.85,
 													duration: 600,
@@ -712,7 +820,7 @@
 									{:else if getFileIcon(doc.type) === 'text' || getFileIconByName(doc.name) === 'text'}
 										<div class="flex justify-center">
 											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+												class="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
 												in:scale={{
 													start: 0.85,
 													duration: 600,
@@ -742,7 +850,7 @@
 									{:else}
 										<div class="flex justify-center">
 											<div
-												class="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-500"
+												class="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-100 text-secondary-700"
 												in:scale={{
 													start: 0.85,
 													duration: 600,
@@ -768,7 +876,7 @@
 										</div>
 									{/if}
 									<div
-										class="mt-2 w-full truncate text-center text-xs text-gray-700"
+										class="mt-2 w-full truncate text-center text-xs text-neutral-700"
 										title={doc.name}
 									>
 										{doc.name.length > 15 ? doc.name.substring(0, 12) + '...' : doc.name}

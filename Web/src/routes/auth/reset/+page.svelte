@@ -35,10 +35,10 @@
 	}
 </script>
 
-<div class="flex min-h-screen flex-col justify-center bg-gray-50 py-12 sm:px-6 lg:px-8">
+<div class="flex min-h-screen flex-col justify-center bg-neutral-50 py-12 sm:px-6 lg:px-8">
 	<div class="sm:mx-auto sm:w-full sm:max-w-md">
-		<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Set new password</h2>
-		<p class="mt-2 text-center text-sm text-gray-600">Choose a new password for your account</p>
+		<h2 class="mt-6 text-center text-3xl font-extrabold text-neutral-900">Set new password</h2>
+		<p class="mt-2 text-center text-sm text-neutral-600">Choose a new password for your account</p>
 	</div>
 
 	<div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -83,7 +83,7 @@
 					{/if}
 
 					<div>
-						<label for="password" class="block text-sm font-medium text-gray-700">
+						<label for="password" class="block text-sm font-medium text-neutral-700">
 							New Password
 						</label>
 						<div class="mt-1">
@@ -94,13 +94,13 @@
 								autocomplete="new-password"
 								required
 								bind:value={password}
-								class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+								class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 							/>
 						</div>
 					</div>
 
 					<div>
-						<label for="confirm-password" class="block text-sm font-medium text-gray-700">
+						<label for="confirm-password" class="block text-sm font-medium text-neutral-700">
 							Confirm New Password
 						</label>
 						<div class="mt-1">
@@ -111,7 +111,7 @@
 								autocomplete="new-password"
 								required
 								bind:value={confirmPassword}
-								class="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+								class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 							/>
 						</div>
 					</div>
@@ -120,7 +120,7 @@
 						<button
 							type="submit"
 							disabled={loading}
-							class="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+							class="flex w-full justify-center rounded-md border border-transparent bg-primary-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-900 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							{#if loading}
 								<div

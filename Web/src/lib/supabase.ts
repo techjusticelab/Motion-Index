@@ -21,6 +21,63 @@ export interface CaseDocument {
 export class CaseManager {
   constructor(private supabase: SupabaseClient) {}
 
+  // Test database connectivity and permissions
+  async testDatabaseAccess(): Promise<void> {
+    console.log('Testing database access...');
+
+    // Test reading from cases table
+    try {
+      const { data: casesData, error: casesError } = await this.supabase
+        .from('cases')
+        .select('id, case_name')
+        .limit(1);
+
+      if (casesError) {
+        console.error('Error reading cases table:', casesError);
+      } else {
+        console.log('Cases table access OK, sample data:', casesData);
+      }
+    } catch (error) {
+      console.error('Exception reading cases table:', error);
+    }
+
+    // Test reading from case_documents table
+    try {
+      const { data: docsData, error: docsError } = await this.supabase
+        .from('case_documents')
+        .select('*')
+        .limit(1);
+
+      if (docsError) {
+        console.error('Error reading case_documents table:', docsError);
+      } else {
+        console.log('Case_documents table access OK, sample data:', docsData);
+      }
+    } catch (error) {
+      console.error('Exception reading case_documents table:', error);
+    }
+
+    // Test a simple insert to case_documents table (commented out for now)
+    // This test requires a valid case_id from the cases table
+    try {
+      console.log('Skipping case_documents insert test - requires valid case_id');
+      // First get a real case_id from the cases table
+      const { data: realCase } = await this.supabase
+        .from('cases')
+        .select('id')
+        .limit(1)
+        .single();
+
+      if (realCase) {
+        console.log('Found valid case_id for testing:', realCase.id);
+        // Could implement actual test here if needed
+      }
+    } catch (error) {
+      // Test commented out to avoid foreign key constraint errors
+      console.log('Case documents insert test disabled to avoid FK constraint errors');
+    }
+  }
+
   // Create a new case
   async createCase(userId: string, caseName: string): Promise<Case | null> {
     // The database has a circular foreign key constraint issue with case_docs field
@@ -96,25 +153,74 @@ export class CaseManager {
 
   // Add document to case
   async addDocumentToCase(caseId: string, documentId: string, notes?: string): Promise<CaseDocument | null> {
-    const { data, error } = await this.supabase
-      .from('case_documents')
-      .insert({
+    console.log('CaseManager.addDocumentToCase called with:', { caseId, documentId, notes });
+
+    try {
+      // Check if document already exists in this case
+      console.log('Checking for existing document...');
+      const { data: existingDoc, error: checkError } = await this.supabase
+        .from('case_documents')
+        .select('id')
+        .eq('case_id', caseId)
+        .eq('document_ids', documentId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking for existing document:', checkError);
+      }
+
+      if (existingDoc) {
+        console.log('Document already exists in this case:', existingDoc);
+        return existingDoc;
+      }
+
+      console.log('Inserting new case document...');
+      const insertData = {
         case_id: caseId,
         document_ids: documentId,
         notes
-      })
-      .select()
-      .single();
+      };
+      console.log('Insert data:', insertData);
 
-    if (error) {
-      console.error('Error adding document to case:', error);
+      const { data, error } = await this.supabase
+        .from('case_documents')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error inserting document to case:', {
+          error,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        return null;
+      }
+
+      console.log('Document inserted successfully:', data);
+
+      // Add the case_document ID (not document ID) to the case_docs array
+      console.log('Updating case_docs array...');
+      await this.addDocumentIdToCase(caseId, data.id);
+
+      // Update the case's updated_at timestamp
+      console.log('Updating case timestamp...');
+      const { error: updateError } = await this.supabase
+        .from('cases')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', caseId);
+
+      if (updateError) {
+        console.error('Error updating case timestamp:', updateError);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Unexpected error in addDocumentToCase:', error);
       return null;
     }
-
-    // Also add the document ID to the case_docs array
-    await this.addDocumentIdToCase(caseId, data.id);
-
-    return data;
   }
 
   // Get documents for a case
