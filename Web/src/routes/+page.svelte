@@ -67,23 +67,33 @@
 
 			// Fetch document types for filter dropdown
 			documentTypes = await api.getDocumentTypes();
-			// Fetch metadata fields
-			const fieldsResponse = await api.getMetadataFields();
-			metadataFields = fieldsResponse.fields;
+			
+			// Skip metadata fields - endpoint doesn't exist in Go Fiber API
+			// The API only has /api/v1/metadata-fields/:field with field parameter
+			console.log('Skipping metadata fields - using field-options instead');
 
 			// Fetch document stats
-			documentStats = await api.getDocumentStats();
-			console.log('Document stats:', documentStats);
-			if (documentStats?.date_range) {
-				searchParams.date_range.start = documentStats.date_range.oldest;
-				searchParams.date_range.end = documentStats.date_range.newest;
+			try {
+				documentStats = await api.getDocumentStats();
+				console.log('Document stats:', documentStats);
+				if (documentStats?.date_range) {
+					searchParams.date_range.start = documentStats.date_range.oldest;
+					searchParams.date_range.end = documentStats.date_range.newest;
+				}
+				if (documentStats?.total_documents) {
+					totalPages = Math.min(searchParams.size, documentStats.total_documents);
+				}
+			} catch (err) {
+				console.warn('Could not fetch document stats:', err);
 			}
-			if (documentStats?.total_documents) {
-				totalPages = Math.min(searchParams.size, documentStats.total_documents);
-			}
+
 			// Fetch all field options
-			fieldOptions = await api.getAllFieldOptions();
-			console.log('Field options:', fieldOptions);
+			try {
+				fieldOptions = await api.getAllFieldOptions();
+				console.log('Field options:', fieldOptions);
+			} catch (err) {
+				console.warn('Could not fetch field options:', err);
+			}
 
 			// Initial search
 			await performSearch();

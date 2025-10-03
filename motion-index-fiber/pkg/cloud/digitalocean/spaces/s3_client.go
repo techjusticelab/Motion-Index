@@ -97,7 +97,8 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 	}
 
 	// Initialize actual AWS S3 client for DigitalOcean Spaces
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	awsConfig, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(client.config.Region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
@@ -119,9 +120,9 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 	// Create S3 client with DigitalOcean Spaces configuration
 	client.client = s3.NewFromConfig(awsConfig, func(o *s3.Options) {
 		o.UsePathStyle = client.config.ForcePathStyle
-		// Add retries and timeouts for better reliability
-		o.RetryMaxAttempts = 3
-		o.RetryMode = aws.RetryModeStandard // Use standard mode for better compatibility
+		// Reduce retries to avoid rate limiting issues with DigitalOcean Spaces
+		o.RetryMaxAttempts = 1
+		o.RetryMode = aws.RetryModeStandard
 		// Disable signature version 4a for better compatibility with DigitalOcean Spaces
 		o.DisableMultiRegionAccessPoints = true
 	})
