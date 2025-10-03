@@ -7,7 +7,7 @@ import (
 
 	"github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // GetLegalTags returns all legal tags with their document counts
@@ -107,6 +107,133 @@ func (s *service) GetMetadataFieldValues(ctx context.Context, field string, pref
 		"aggs": map[string]interface{}{
 			aggName: agg,
 		},
+	}
+
+	res, err := s.executeAggregationQuery(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	buckets, err := s.extractBuckets(res, aggName)
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([]*models.FieldValue, len(buckets))
+	for i, bucket := range buckets {
+		values[i] = &models.FieldValue{
+			Value: bucket.Key,
+			Count: bucket.DocCount,
+		}
+	}
+
+	return values, nil
+}
+
+// GetMetadataFieldValuesWithFilters returns unique values for a metadata field with custom filters
+func (s *service) GetMetadataFieldValuesWithFilters(ctx context.Context, req *models.MetadataFieldValuesRequest) ([]*models.FieldValue, error) {
+	// Validate and set defaults
+	if req.Field == "" {
+		return nil, fmt.Errorf("field is required")
+	}
+	
+	size := req.Size
+	if size <= 0 {
+		size = 50
+	}
+	if size > 1000 {
+		size = 1000
+	}
+
+	// Build aggregation
+	aggName := "field_values"
+	agg := map[string]interface{}{
+		"terms": map[string]interface{}{
+			"field": req.Field,
+			"size":  size,
+		},
+	}
+
+	// Add prefix filter if provided
+	if req.Prefix != "" {
+		agg["terms"].(map[string]interface{})["include"] = fmt.Sprintf("%s.*", req.Prefix)
+	}
+
+	// Add exclude filter if provided
+	if len(req.ExcludeValues) > 0 {
+		agg["terms"].(map[string]interface{})["exclude"] = req.ExcludeValues
+	}
+
+	// Build base query with custom filters
+	query := map[string]interface{}{
+		"size": 0,
+		"aggs": map[string]interface{}{
+			aggName: agg,
+		},
+	}
+
+	// Add custom filters if provided
+	if len(req.Filters) > 0 {
+		filterClauses := make([]map[string]interface{}, 0)
+		
+		for field, value := range req.Filters {
+			switch v := value.(type) {
+			case string:
+				// Simple term filter
+				filterClauses = append(filterClauses, map[string]interface{}{
+					"term": map[string]interface{}{
+						field: v,
+					},
+				})
+			case []interface{}:
+				// Terms filter for arrays
+				if len(v) > 0 {
+					filterClauses = append(filterClauses, map[string]interface{}{
+						"terms": map[string]interface{}{
+							field: v,
+						},
+					})
+				}
+			case []string:
+				// Terms filter for string arrays
+				if len(v) > 0 {
+					values := make([]interface{}, len(v))
+					for i, str := range v {
+						values[i] = str
+					}
+					filterClauses = append(filterClauses, map[string]interface{}{
+						"terms": map[string]interface{}{
+							field: values,
+						},
+					})
+				}
+			case map[string]interface{}:
+				// Handle complex filters like date_range
+				if field == "date_range" {
+					if from, ok := v["from"]; ok {
+						if to, ok := v["to"]; ok {
+							filterClauses = append(filterClauses, map[string]interface{}{
+								"range": map[string]interface{}{
+									"created_at": map[string]interface{}{
+										"gte": from,
+										"lte": to,
+									},
+								},
+							})
+						}
+					}
+				}
+			}
+		}
+
+		// Add filters to query if any were created
+		if len(filterClauses) > 0 {
+			query["query"] = map[string]interface{}{
+				"bool": map[string]interface{}{
+					"filter": filterClauses,
+				},
+			}
+		}
 	}
 
 	res, err := s.executeAggregationQuery(ctx, query)

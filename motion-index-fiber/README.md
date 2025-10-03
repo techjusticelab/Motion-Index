@@ -124,14 +124,13 @@ PROCESS_TIMEOUT=5m
 ### Health & Status
 - `GET /` - Root status and service information
 - `GET /health` - Basic health check
-- `GET /health/detailed` - Comprehensive system status with metrics
-- `GET /health/ready` - Readiness check for orchestration
-- `GET /health/live` - Liveness check for orchestration  
-- `GET /metrics` - Application metrics and performance data
 
-### Document Processing
+### Document Processing & Management
 - `POST /api/v1/categorise` - Upload and process documents with AI classification
 - `POST /api/v1/analyze-redactions` - Analyze PDF redactions for legal compliance
+- `POST /api/v1/redact-document` - Create redacted version of a document
+- `POST /api/v1/update-metadata` - Update document metadata (currently unprotected)
+- `DELETE /api/v1/documents/:id` - Delete documents (currently unprotected)
 
 ### Search & Discovery
 - `POST /api/v1/search` - Advanced document search with legal filtering
@@ -139,33 +138,71 @@ PROCESS_TIMEOUT=5m
 - `GET /api/v1/document-types` - Get document type classifications
 - `GET /api/v1/document-stats` - Index statistics and analytics
 - `GET /api/v1/field-options` - Get available search field options
+- `GET /api/v1/metadata-fields` - Get available metadata fields with types
 - `GET /api/v1/metadata-fields/:field` - Get values for specific metadata fields
 - `GET /api/v1/documents/:id` - Get specific document details
+- `GET /api/v1/documents/:id/redactions` - Get redaction analysis for a document
 
 ### File Storage & CDN
 - `GET /api/v1/documents/*` - Serve documents (automatic CDN redirects)
 
-### Protected Endpoints (Authentication Required)
-- `POST /api/v1/update-metadata` - Update document metadata
-- `DELETE /api/v1/documents/:id` - Delete documents
+### Storage Management
+- `GET /api/v1/storage/documents` - List documents in storage
+- `GET /api/v1/storage/documents/count` - Get document count statistics
+
+### Batch Processing
+- `POST /api/v1/batch/classify` - Start batch classification job
+- `GET /api/v1/batch/:job_id/status` - Get batch job status
+- `GET /api/v1/batch/:job_id/results` - Get batch job results
+- `DELETE /api/v1/batch/:job_id` - Cancel batch job
+
+### Document Indexing
+- `POST /api/v1/index/document` - Index a document for search
 
 ### Testing Endpoints
 ```bash
 # Test basic connectivity
 curl http://localhost:6000/
 
-# Test detailed health with metrics
+# Test health check
 curl http://localhost:6000/health
 
 # Test search functionality
 curl -X POST http://localhost:6000/api/v1/search \
   -H "Content-Type: application/json" \
-  -d '{"query": "motion to dismiss", "limit": 10}'
+  -d '{"query": "motion to dismiss", "size": 10}'
 
 # Test document upload (multipart form)
 curl -X POST http://localhost:6000/api/v1/categorise \
   -F "file=@document.pdf" \
-  -F "metadata={\"case_id\":\"12345\"}"
+  -F "case_name=Test Case" \
+  -F "category=motion"
+
+# Test metadata fields
+curl http://localhost:6000/api/v1/metadata-fields
+
+# Test specific field values
+curl http://localhost:6000/api/v1/metadata-fields/court
+
+# Test document stats
+curl http://localhost:6000/api/v1/document-stats
+
+# Test document retrieval
+curl http://localhost:6000/api/v1/documents/some-document-id
+
+# Test document redaction analysis
+curl http://localhost:6000/api/v1/documents/some-document-id/redactions
+
+# Test redact document
+curl -X POST http://localhost:6000/api/v1/redact-document \
+  -H "Content-Type: application/json" \
+  -d '{"document_id": "some-document-id", "apply_redactions": true}'
+
+# Test storage document listing
+curl http://localhost:6000/api/v1/storage/documents
+
+# Test storage document count
+curl http://localhost:6000/api/v1/storage/documents/count
 ```
 
 ## Development

@@ -7,7 +7,7 @@ import (
 
 	"motion-index-fiber/pkg/processing/classifier"
 	"motion-index-fiber/pkg/processing/extractor"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // Pipeline defines the interface for document processing pipeline

@@ -10,7 +10,7 @@ import (
 
 	"motion-index-fiber/pkg/processing/extractor"
 	"motion-index-fiber/pkg/processing/queue"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // createExtractionProcessor creates a processor for document text extraction

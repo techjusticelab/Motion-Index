@@ -1,67 +1,87 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-
-	import { invalidateAll } from '$app/navigation';
-
 	import { page } from '$app/stores';
-
-	import { goto } from '$app/navigation';
-
 	import { fade, fly, scale } from 'svelte/transition';
-
 	import { cubicOut } from 'svelte/easing';
+	import type { ActionData } from './$types';
+	import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+	import { checkNetworkConnectivity, getNetworkErrorMessage, detectAdBlockers } from '$lib/utils/network-check';
 
-	let email = '';
-
-	let password = '';
-
-	let loading = false;
-
-	let error: string | null = null;
-	let successMessage: string | null = null;
+	let { form }: { form: ActionData } = $props();
 	
-	// Check for success message in URL parameters
-	$: {
+	let loading = $state(false);
+	let successMessage: string | null = $state(null);
+	let networkStatus: string | null = $state(null);
+	let checkingNetwork = $state(false);
+	
+	// Check for success/error messages in URL parameters
+	$effect(() => {
 		const message = $page.url.searchParams.get('message');
+		const error = $page.url.searchParams.get('error');
+		
 		if (message) {
-			successMessage = message;
+			successMessage = decodeURIComponent(message);
 		}
+		
+		// Clear URL parameters after showing message
+		if (message || error) {
+			const url = new URL($page.url);
+			url.searchParams.delete('message');
+			url.searchParams.delete('error');
+			history.replaceState({}, '', url.toString());
+		}
+	});
+
+	// Handle form submission with enhanced progressive enhancement
+	function handleEnhance() {
+		return ({ formElement, formData, action, cancel, submitter }) => {
+			loading = true;
+			successMessage = null;
+			networkStatus = null;
+			
+			return async ({ result, update }) => {
+				loading = false;
+				
+				if (result.type === 'redirect') {
+					// Let SvelteKit handle the redirect
+					await update();
+				} else if (result.type === 'failure') {
+					// Form validation or auth errors - update will show them
+					await update();
+				} else {
+					// Success or other result types
+					await update();
+				}
+			};
+		};
 	}
 
-	const handleSubmit = async (event: SubmitEvent) => {
-		event.preventDefault();
-
+	// Network connectivity checker
+	async function checkNetwork() {
+		checkingNetwork = true;
+		networkStatus = null;
+		
 		try {
-			loading = true;
-			error = null;
-
-			// Use the Supabase client from page data
-			const { data, error: err } = await $page.data.supabase.auth.signInWithPassword({
-				email,
-				password
-			});
-
-			if (err) throw err;
-
-			if (data?.session) {
-				console.log('Login successful');
-
-				// Invalidate all cached data to refresh auth state
-				await invalidateAll();
-
-				// Redirect to the requested page or home
-				const redirectTo = $page.url.searchParams.get('redirectTo') || '/';
-				goto(redirectTo);
-			} else {
-				throw new Error('Login successful but session data is missing');
+			const result = await checkNetworkConnectivity(PUBLIC_SUPABASE_URL);
+			const detectedBlockers = detectAdBlockers();
+			
+			let statusMessage = getNetworkErrorMessage(result);
+			
+			if (detectedBlockers.length > 0) {
+				statusMessage += `\n\nDetected extensions: ${detectedBlockers.join(', ')}`;
 			}
-		} catch (err: any) {
-			console.error('Login error:', err);
-			error = err.message || 'Failed to sign in';
+			
+			if (result.supabaseReachable) {
+				statusMessage = '✅ Network connectivity OK - Supabase is reachable';
+			}
+			
+			networkStatus = statusMessage;
+		} catch (error) {
+			networkStatus = `Network check failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
 		} finally {
-			loading = false;
+			checkingNetwork = false;
 		}
-	};
+	}
 </script>
 
 <div class="flex min-h-screen flex-col justify-center bg-neutral-50 py-12 sm:px-6 lg:px-8">
@@ -78,14 +98,42 @@
 			class="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10"
 			in:scale={{ start: 0.97, duration: 600, delay: 400, easing: cubicOut }}
 		>
-			<form class="space-y-6" on:submit={handleSubmit} in:fade={{ duration: 500, delay: 500 }}>
-				{#if error}
+			<form method="POST" class="space-y-6" use:enhance={handleEnhance} in:fade={{ duration: 500, delay: 500 }}>
+				<!-- Server-side form errors -->
+				{#if form?.error}
+					<div class="rounded-md bg-red-50 p-4">
+						<div class="flex">
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-red-800 whitespace-pre-line">
+									{form.error}
+								</h3>
+								{#if form.error.includes('ad blocker') || form.error.includes('Connection failed')}
+									<div class="mt-2 text-xs text-red-600">
+										<p class="font-medium">Common solutions:</p>
+										<ul class="list-disc list-inside mt-1 space-y-1">
+											<li>Disable uBlock Origin, AdBlock Plus, or similar extensions</li>
+											<li>Add *.supabase.co to your allowlist</li>
+											<li>Try incognito/private browsing mode</li>
+											<li>Check your network/firewall settings</li>
+										</ul>
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- URL parameter errors (e.g., from OAuth) -->
+				{#if $page.url.searchParams.get('error')}
 					<div class="rounded-md bg-red-50 p-4">
 						<div class="flex">
 							<div class="ml-3">
 								<h3 class="text-sm font-medium text-red-800">
-									{error}
+									{decodeURIComponent($page.url.searchParams.get('error') || '')}
 								</h3>
+								<p class="text-xs text-red-600 mt-1">
+									If you're using an ad blocker, please allow Supabase domains or try disabling it temporarily.
+								</p>
 							</div>
 						</div>
 					</div>
@@ -103,6 +151,19 @@
 					</div>
 				{/if}
 
+				<!-- Network status information -->
+				{#if networkStatus}
+					<div class="rounded-md bg-blue-50 p-4">
+						<div class="flex">
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-blue-800 whitespace-pre-line">
+									{networkStatus}
+								</h3>
+							</div>
+						</div>
+					</div>
+				{/if}
+
 				<div>
 					<label for="email" class="block text-sm font-medium text-neutral-700">Email address</label>
 					<div class="mt-1">
@@ -112,7 +173,7 @@
 							type="email"
 							autocomplete="email"
 							required
-							bind:value={email}
+							value={form?.email ?? ''}
 							class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 						/>
 					</div>
@@ -127,7 +188,6 @@
 							type="password"
 							autocomplete="current-password"
 							required
-							bind:value={password}
 							class="block w-full appearance-none rounded-md border border-neutral-300 px-3 py-2 placeholder-neutral-400 shadow-sm focus:border-primary-900 focus:outline-none focus:ring-primary-900 sm:text-sm"
 						/>
 					</div>
@@ -138,6 +198,20 @@
 						<a href="/auth/forgot" class="font-medium text-primary-900 hover:text-primary-800">
 							Forgot your password?
 						</a>
+					</div>
+					<div class="text-sm">
+						<button
+							type="button"
+							onclick={checkNetwork}
+							disabled={checkingNetwork}
+							class="font-medium text-blue-600 hover:text-blue-500 disabled:opacity-50"
+						>
+							{#if checkingNetwork}
+								Checking...
+							{:else}
+								Test Connection
+							{/if}
+						</button>
 					</div>
 				</div>
 

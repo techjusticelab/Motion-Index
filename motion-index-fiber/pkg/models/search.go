@@ -28,12 +28,6 @@ type SearchRequest struct {
 	Limit             int                `json:"limit,omitempty"` // For backward compatibility with tests
 }
 
-// DateRange represents a date range filter
-type DateRange struct {
-	From *time.Time `json:"from,omitempty"`
-	To   *time.Time `json:"to,omitempty"`
-}
-
 // SearchResult represents the response from a search query
 type SearchResult struct {
 	TotalHits    int64                  `json:"total_hits"`
@@ -150,6 +144,15 @@ const DefaultSearchSize = 20
 // MaxSearchSize is the maximum number of results allowed
 const MaxSearchSize = 100
 
+// MetadataFieldValuesRequest represents a request for metadata field values with custom filters
+type MetadataFieldValuesRequest struct {
+	Field         string                 `json:"field" validate:"required"`
+	Prefix        string                 `json:"prefix,omitempty"`
+	Size          int                    `json:"size,omitempty" validate:"min=1,max=1000"`
+	Filters       map[string]interface{} `json:"filters,omitempty"`
+	ExcludeValues []string               `json:"exclude_values,omitempty"`
+}
+
 // SearchResponse represents the top-level search response
 type SearchResponse struct {
 	Success    bool         `json:"success"`
@@ -222,13 +225,13 @@ type SortOptions struct {
 
 // Filters represents search filters that can be applied
 type Filters struct {
-	DocType     []string            `json:"doc_type,omitempty"`
-	Court       []string            `json:"court,omitempty"`
-	Judge       []string            `json:"judge,omitempty"`
-	Author      []string            `json:"author,omitempty"`
-	Status      []string            `json:"status,omitempty"`
-	LegalTags   []string            `json:"legal_tags,omitempty"`
-	DateRange   *DateRange          `json:"date_range,omitempty"`
+	DocType       []string            `json:"doc_type,omitempty"`
+	Court         []string            `json:"court,omitempty"`
+	Judge         []string            `json:"judge,omitempty"`
+	Author        []string            `json:"author,omitempty"`
+	Status        []string            `json:"status,omitempty"`
+	LegalTags     []string            `json:"legal_tags,omitempty"`
+	DateRange     *DateRange          `json:"date_range,omitempty"`
 	CustomFilters map[string]interface{} `json:"custom_filters,omitempty"`
 }
 
@@ -249,3 +252,134 @@ type AggregationBucket struct {
 	DocCount int    `json:"doc_count"`
 }
 
+// ValidateSearchRequest validates a search request and applies defaults
+func ValidateSearchRequest(req *SearchRequest) error {
+	if req.Size > MaxSearchSize {
+		req.Size = MaxSearchSize
+	}
+	if req.Size <= 0 {
+		req.Size = DefaultSearchSize
+	}
+	if req.From < 0 {
+		req.From = 0
+	}
+
+	// Validate sort order
+	if req.SortOrder != "" && req.SortOrder != "asc" && req.SortOrder != "desc" {
+		req.SortOrder = "desc"
+	}
+
+	// Handle backward compatibility with Limit field
+	if req.Limit > 0 && req.Size == 0 {
+		req.Size = req.Limit
+		if req.Size > MaxSearchSize {
+			req.Size = MaxSearchSize
+		}
+	}
+
+	return nil
+}
+
+// ApplyDefaults applies default values to a search request
+func (sr *SearchRequest) ApplyDefaults() {
+	if sr.Size <= 0 {
+		sr.Size = DefaultSearchSize
+	}
+	if sr.From < 0 {
+		sr.From = 0
+	}
+	if sr.SortOrder == "" {
+		sr.SortOrder = "desc"
+	}
+	if sr.SortBy == "" {
+		sr.SortBy = "relevance"
+	}
+}
+
+// GetEffectiveSize returns the effective size for the search request
+func (sr *SearchRequest) GetEffectiveSize() int {
+	if sr.Size > 0 {
+		return sr.Size
+	}
+	if sr.Limit > 0 {
+		return sr.Limit
+	}
+	return DefaultSearchSize
+}
+
+// GetEffectiveFrom returns the effective from offset for the search request
+func (sr *SearchRequest) GetEffectiveFrom() int {
+	if sr.From < 0 {
+		return 0
+	}
+	return sr.From
+}
+
+// HasFilters returns true if the search request has any filters applied
+func (sr *SearchRequest) HasFilters() bool {
+	return sr.DocType != "" ||
+		sr.CaseNumber != "" ||
+		sr.CaseName != "" ||
+		len(sr.Judge) > 0 ||
+		len(sr.Court) > 0 ||
+		sr.Author != "" ||
+		sr.Status != "" ||
+		len(sr.LegalTags) > 0 ||
+		sr.DateRange != nil && !sr.DateRange.IsEmpty()
+}
+
+// GetFilterCount returns the number of active filters
+func (sr *SearchRequest) GetFilterCount() int {
+	count := 0
+	if sr.DocType != "" {
+		count++
+	}
+	if sr.CaseNumber != "" {
+		count++
+	}
+	if sr.CaseName != "" {
+		count++
+	}
+	if len(sr.Judge) > 0 {
+		count++
+	}
+	if len(sr.Court) > 0 {
+		count++
+	}
+	if sr.Author != "" {
+		count++
+	}
+	if sr.Status != "" {
+		count++
+	}
+	if len(sr.LegalTags) > 0 {
+		count++
+	}
+	if sr.DateRange != nil && !sr.DateRange.IsEmpty() {
+		count++
+	}
+	return count
+}
+
+// NewSearchRequest creates a new search request with defaults
+func NewSearchRequest() *SearchRequest {
+	req := &SearchRequest{
+		Size:              DefaultSearchSize,
+		From:              0,
+		SortBy:            "relevance",
+		SortOrder:         "desc",
+		IncludeHighlights: true,
+		FuzzySearch:       false,
+		LegalTagsMatchAll: false,
+	}
+	return req
+}
+
+// NewSearchResult creates a new search result
+func NewSearchResult() *SearchResult {
+	return &SearchResult{
+		Documents:    make([]*SearchDocument, 0),
+		Aggregations: make(map[string]interface{}),
+		TimedOut:     false,
+	}
+}

@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	searchModels "motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/storage"
 )
 
@@ -21,23 +21,9 @@ type ClassificationResult struct {
 	Tags       []string `json:"tags"`
 }
 
-// APIResponse represents a standard API response wrapper
-type APIResponse struct {
-	Success   bool        `json:"success"`
-	Message   string      `json:"message,omitempty"`
-	Data      interface{} `json:"data,omitempty"`
-	Error     *APIError   `json:"error,omitempty"`
-	RequestID string      `json:"request_id,omitempty"`
-	Timestamp time.Time   `json:"timestamp"`
-}
-
-// APIError represents a structured API error
-type APIError struct {
-	Code    string                 `json:"code"`
-	Message string                 `json:"message"`
-	Details map[string]interface{} `json:"details,omitempty"`
-	Field   string                 `json:"field,omitempty"`
-}
+// Re-export types from pkg/models for internal use
+type APIResponse = models.APIResponse
+type APIError = models.APIError
 
 // ProcessDocumentResponse represents the response from document processing
 type ProcessDocumentResponse struct {
@@ -95,26 +81,8 @@ type ProcessingStep struct {
 	ProcessedBy string    `json:"processed_by,omitempty"`
 }
 
-// DocumentMetadata represents document metadata
-type DocumentMetadata struct {
-	DocumentName string            `json:"document_name"`
-	Subject      string            `json:"subject,omitempty"`
-	Status       string            `json:"status,omitempty"`
-	CaseName     string            `json:"case_name,omitempty"`
-	CaseNumber   string            `json:"case_number,omitempty"`
-	Author       string            `json:"author,omitempty"`
-	Judge        string            `json:"judge,omitempty"`
-	Court        string            `json:"court,omitempty"`
-	LegalTags    []string          `json:"legal_tags,omitempty"`
-	Language     string            `json:"language,omitempty"`
-	Pages        int               `json:"pages,omitempty"`
-	WordCount    int               `json:"word_count,omitempty"`
-	Category     string            `json:"category,omitempty"`
-	Confidence   float64           `json:"confidence,omitempty"`
-	Properties   map[string]string `json:"properties,omitempty"`
-	CreatedAt    time.Time         `json:"created_at"`
-	UpdatedAt    time.Time         `json:"updated_at"`
-}
+// Re-export DocumentMetadata from pkg/models
+type DocumentMetadata = models.DocumentMetadata
 
 // SearchDocumentsResponse represents the response from document search
 type SearchDocumentsResponse struct {
@@ -124,7 +92,7 @@ type SearchDocumentsResponse struct {
 	SearchTime   int64                    `json:"search_time_ms"`
 	Page         int                      `json:"page"`
 	Size         int                      `json:"size"`
-	Documents    []*searchModels.Document `json:"documents"`
+	Documents    []*models.Document `json:"documents"`
 	Aggregations map[string]interface{}   `json:"aggregations,omitempty"`
 	Suggestions  []string                 `json:"suggestions,omitempty"`
 }
@@ -144,22 +112,14 @@ type DocumentStatsResponse struct {
 	GeneratedAt      time.Time        `json:"generated_at"`
 }
 
-// TypeCount represents document type statistics
-type TypeCount struct {
-	Type  string `json:"type"`
-	Count int64  `json:"count"`
-}
+// Re-export types from pkg/models that exist there
+type TypeCount = models.TypeCount
+type TagCount = models.TagCount
 
-// CategoryCount represents category statistics
+// CategoryCount represents category statistics (internal only)
 type CategoryCount struct {
 	Category string `json:"category"`
 	Count    int64  `json:"count"`
-}
-
-// TagCount represents tag statistics
-type TagCount struct {
-	Tag   string `json:"tag"`
-	Count int64  `json:"count"`
 }
 
 // CourtCount represents court statistics
@@ -286,43 +246,6 @@ type ProcessorStatus struct {
 	LastProcessed     time.Time `json:"last_processed,omitempty"`
 }
 
-// Helper functions to create standard responses
-
-// NewSuccessResponse creates a successful API response
-func NewSuccessResponse(data interface{}, message string) *APIResponse {
-	return &APIResponse{
-		Success:   true,
-		Message:   message,
-		Data:      data,
-		Timestamp: time.Now(),
-	}
-}
-
-// NewErrorResponse creates an error API response
-func NewErrorResponse(code, message string, details map[string]interface{}) *APIResponse {
-	return &APIResponse{
-		Success: false,
-		Error: &APIError{
-			Code:    code,
-			Message: message,
-			Details: details,
-		},
-		Timestamp: time.Now(),
-	}
-}
-
-// NewValidationErrorResponse creates a validation error response
-func NewValidationErrorResponse(field, message string) *APIResponse {
-	return &APIResponse{
-		Success: false,
-		Error: &APIError{
-			Code:    "validation_error",
-			Message: message,
-			Field:   field,
-		},
-		Timestamp: time.Now(),
-	}
-}
 
 // HealthResponse represents a basic health check response
 type HealthResponse struct {
@@ -419,3 +342,22 @@ type UpdateMetadataResponse struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 	Status     string    `json:"status"`
 }
+
+// RedactDocumentResponse represents the response from creating a redacted document
+type RedactDocumentResponse struct {
+	Success          bool            `json:"success"`
+	DocumentID       string          `json:"document_id,omitempty"`
+	RedactedURL      *string         `json:"redacted_url,omitempty"`
+	PDFBase64        string          `json:"pdf_base64,omitempty"`
+	Filename         string          `json:"filename,omitempty"`
+	Redactions       []RedactionItem `json:"redactions"`
+	TotalRedactions  int             `json:"total_redactions"`
+	Message          string          `json:"message"`
+}
+
+// Re-export helper functions from pkg/models for convenience
+var (
+	NewSuccessResponse          = models.NewSuccessResponse
+	NewErrorResponse            = models.NewErrorResponse
+	NewValidationErrorResponse  = models.NewValidationErrorResponse
+)

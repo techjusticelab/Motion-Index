@@ -6,8 +6,8 @@
 	import { invalidate, goto } from '$app/navigation';
 	import { cubicOut, quintOut, backOut, elasticOut } from 'svelte/easing';
 	import { enhance } from '$app/forms';
-	import { UserProfileCard } from '$lib/components/user';
-	import { CaseCard } from '$lib/components/case';
+	import UserProfileCard from '$lib/components/user/UserProfileCard.svelte';
+	import CaseCard from '$lib/components/case/CaseCard.svelte';
 	import { EmptyState, Button } from '$lib/components/ui';
 
 	let { data } = $props();

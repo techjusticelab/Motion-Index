@@ -2,7 +2,8 @@ package models
 
 import (
 	"mime/multipart"
-	"time"
+
+	"motion-index-fiber/pkg/models"
 )
 
 // ProcessDocumentRequest represents a document processing request
@@ -39,16 +40,8 @@ type BatchProcessRequest struct {
 	Options     *ProcessOptions         `json:"options,omitempty"`
 }
 
-// SearchDocumentsRequest represents a document search request
-type SearchDocumentsRequest struct {
-	Query     string            `json:"query" validate:"required,min=1,max=500"`
-	Filters   map[string]string `json:"filters" validate:"omitempty"`
-	Page      int               `json:"page" validate:"omitempty,min=1"`
-	Size      int               `json:"size" validate:"omitempty,min=1,max=100"`
-	SortBy    string            `json:"sort_by" validate:"omitempty,oneof=relevance date size name"`
-	SortOrder string            `json:"sort_order" validate:"omitempty,oneof=asc desc"`
-	Highlight bool              `json:"highlight" validate:"omitempty"`
-}
+// Re-export SearchRequest from pkg/models for consistency
+type SearchDocumentsRequest = models.SearchRequest
 
 // UpdateMetadataRequest represents a request to update document metadata
 type UpdateMetadataRequest struct {
@@ -97,11 +90,8 @@ type GetDocumentStatsRequest struct {
 	Granularity string     `json:"granularity" validate:"omitempty,oneof=day week month year"`
 }
 
-// DateRange represents a date range filter
-type DateRange struct {
-	Start time.Time `json:"start" validate:"omitempty"`
-	End   time.Time `json:"end" validate:"omitempty,gtfield=Start"`
-}
+// Re-export DateRange from pkg/models
+type DateRange = models.DateRange
 
 // HealthCheckRequest represents a health check request
 type HealthCheckRequest struct {
@@ -136,6 +126,38 @@ func (opts *ProcessOptions) Validate() error {
 	}
 
 	return nil
+}
+
+// RedactDocumentRequest represents a request to create a redacted version of a document
+type RedactDocumentRequest struct {
+	DocumentID       string                 `json:"document_id,omitempty"`
+	ApplyRedactions  bool                   `json:"apply_redactions"`
+	CustomRedactions []RedactionItem        `json:"custom_redactions,omitempty"`
+	Options          *RedactionOptions      `json:"options,omitempty"`
+	// For file upload redaction (alternative to document_id)
+	PDFBase64        string                 `json:"pdf_base64,omitempty"`
+}
+
+// RedactionOptions configures redaction behavior
+type RedactionOptions struct {
+	UseAI            bool     `json:"use_ai"`
+	CaliforniaLaws   bool     `json:"california_laws"`
+	IncludePatterns  []string `json:"include_patterns,omitempty"`
+	ExcludePatterns  []string `json:"exclude_patterns,omitempty"`
+	ReplacementChar  string   `json:"replacement_char"`
+}
+
+// RedactionItem represents a single redaction to apply
+type RedactionItem struct {
+	ID          string    `json:"id"`
+	Page        int       `json:"page"`
+	Text        string    `json:"text"`
+	BBox        []float64 `json:"bbox"` // [x0, y0, x1, y1]
+	Type        string    `json:"type"`
+	Citation    string    `json:"citation,omitempty"`
+	Reason      string    `json:"reason,omitempty"`
+	LegalCode   string    `json:"legal_code,omitempty"`
+	Applied     bool      `json:"applied"`
 }
 
 // ApplyDefaults applies default values to process options

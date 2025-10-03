@@ -3,6 +3,34 @@ import { type Handle, redirect } from '@sveltejs/kit'
 import { sequence } from '@sveltejs/kit/hooks'
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public'
 
+// Environment variable validation
+function validateEnvironment(): void {
+  const requiredEnvVars = {
+    PUBLIC_SUPABASE_URL,
+    PUBLIC_SUPABASE_ANON_KEY
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([name, value]) => !value)
+    .map(([name]) => name);
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(', ')}`
+    );
+  }
+
+  // Validate Supabase URL format
+  if (!PUBLIC_SUPABASE_URL.startsWith('https://') && !PUBLIC_SUPABASE_URL.includes('localhost')) {
+    throw new Error('PUBLIC_SUPABASE_URL must be a valid HTTPS URL or localhost');
+  }
+
+  console.log('✅ Environment variables validated successfully');
+}
+
+// Validate environment on startup
+validateEnvironment();
+
 const supabase: Handle = async ({ event, resolve }) => {
   event.locals.supabase = createServerClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY, {
     cookies: {

@@ -24,7 +24,7 @@ type Config struct {
 	RateLimitPerMinute   int           `json:"rate_limit_per_minute"`
 	RequestTimeout       time.Duration `json:"request_timeout"`
 	RetryAttempts        int           `json:"retry_attempts"`
-	RetryDelay          time.Duration `json:"retry_delay"`
+	RetryDelay           time.Duration `json:"retry_delay"`
 }
 
 // DocumentInfo represents a document from the storage API
@@ -40,11 +40,11 @@ type DocumentInfo struct {
 type DocumentListResponse struct {
 	Success bool `json:"success"`
 	Data    struct {
-		Documents       []DocumentInfo `json:"documents"`
-		NextCursor      string         `json:"next_cursor"`
-		HasMore         bool           `json:"has_more"`
-		TotalReturned   int            `json:"total_returned"`
-		TotalEstimated  int            `json:"total_estimated"`
+		Documents      []DocumentInfo `json:"documents"`
+		NextCursor     string         `json:"next_cursor"`
+		HasMore        bool           `json:"has_more"`
+		TotalReturned  int            `json:"total_returned"`
+		TotalEstimated int            `json:"total_estimated"`
 	} `json:"data"`
 	Message string `json:"message"`
 }
@@ -174,13 +174,13 @@ func printUsage() {
 
 func loadConfig() *Config {
 	cfg := &Config{
-		APIBaseURL:           getEnv("API_BASE_URL", "http://localhost:6000"),
+		APIBaseURL:           getEnv("API_BASE_URL", "http://localhost:8003"),
 		MaxConcurrentWorkers: getEnvInt("MAX_WORKERS", 5),
 		BatchSize:            getEnvInt("BATCH_SIZE", 50),
 		RateLimitPerMinute:   getEnvInt("RATE_LIMIT", 100),
 		RequestTimeout:       time.Duration(getEnvInt("REQUEST_TIMEOUT_SECONDS", 120)) * time.Second,
 		RetryAttempts:        getEnvInt("RETRY_ATTEMPTS", 3),
-		RetryDelay:          time.Duration(getEnvInt("RETRY_DELAY_SECONDS", 5)) * time.Second,
+		RetryDelay:           time.Duration(getEnvInt("RETRY_DELAY_SECONDS", 5)) * time.Second,
 	}
 
 	fmt.Printf("🔧 Configuration loaded:\n")
@@ -353,14 +353,14 @@ func processAllDocuments(cfg *Config, stats *ClassificationStats) {
 func processDocumentList(cfg *Config, documents []DocumentInfo, stats *ClassificationStats) {
 	// Create worker pool with rate limiting
 	semaphore := make(chan struct{}, cfg.MaxConcurrentWorkers)
-	
+
 	// Calculate rate limiter interval - ensure it's at least 1ms
 	intervalSeconds := 60.0 / float64(cfg.RateLimitPerMinute)
 	if intervalSeconds < 0.001 { // Minimum 1ms
 		intervalSeconds = 0.001
 	}
 	interval := time.Duration(intervalSeconds * float64(time.Second))
-	
+
 	rateLimiter := time.NewTicker(interval)
 	defer rateLimiter.Stop()
 

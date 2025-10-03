@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 func TestSearchHandler_SearchDocuments(t *testing.T) {

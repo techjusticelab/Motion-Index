@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 func TestNewBuilder(t *testing.T) {

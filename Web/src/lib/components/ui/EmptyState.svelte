@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		icon?: 'cases' | 'documents' | 'search' | 'generic';
@@ -9,6 +10,7 @@
 		actionText?: string;
 		delay?: number;
 		class?: string;
+		action?: Snippet;
 	}
 
 	let {
@@ -17,7 +19,8 @@
 		description = '',
 		actionText = '',
 		delay = 0,
-		class: className = ''
+		class: className = '',
+		action
 	}: Props = $props();
 
 	// Icon map for different empty states
@@ -54,13 +57,15 @@
 
 	{#if actionText}
 		<div class="mt-4">
-			<slot name="action">
+			{#if action}
+				{@render action()}
+			{:else}
 				<button
 					class="inline-flex items-center rounded-md border border-transparent bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
 				>
 					{actionText}
 				</button>
-			</slot>
+			{/if}
 		</div>
 	{/if}
 </div>

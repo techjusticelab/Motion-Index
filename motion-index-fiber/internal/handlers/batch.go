@@ -12,13 +12,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	"motion-index-fiber/internal/models"
+	internalModels "motion-index-fiber/internal/models"
 	"motion-index-fiber/pkg/processing"
 	"motion-index-fiber/pkg/processing/classifier"
 	"motion-index-fiber/pkg/processing/extractor"
 	"motion-index-fiber/pkg/processing/queue"
 	"motion-index-fiber/pkg/search"
-	searchModels "motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/storage"
 )
 
@@ -112,7 +112,7 @@ func NewBatchHandler(queueManager queue.QueueManager, storage storage.Service, s
 func (h *BatchHandler) StartBatchClassification(c *fiber.Ctx) error {
 	var request BatchClassifyRequest
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"parse_error",
 			"Failed to parse request body",
 			map[string]interface{}{"error": err.Error()},
@@ -121,7 +121,7 @@ func (h *BatchHandler) StartBatchClassification(c *fiber.Ctx) error {
 
 	// Validate request
 	if len(request.Documents) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"No documents provided for classification",
 			nil,
@@ -129,7 +129,7 @@ func (h *BatchHandler) StartBatchClassification(c *fiber.Ctx) error {
 	}
 
 	if len(request.Documents) > 1000 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"Maximum 1000 documents per batch",
 			nil,
@@ -165,14 +165,14 @@ func (h *BatchHandler) StartBatchClassification(c *fiber.Ctx) error {
 		"created_at":      job.CreatedAt,
 	}
 
-	return c.Status(fiber.StatusAccepted).JSON(models.NewSuccessResponse(response, "Batch classification job started"))
+	return c.Status(fiber.StatusAccepted).JSON(internalModels.NewSuccessResponse(response, "Batch classification job started"))
 }
 
 // GetBatchJobStatus handles GET /api/batch/{job_id}/status - Get job progress
 func (h *BatchHandler) GetBatchJobStatus(c *fiber.Ctx) error {
 	jobID := c.Params("job_id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"Job ID is required",
 			nil,
@@ -184,21 +184,21 @@ func (h *BatchHandler) GetBatchJobStatus(c *fiber.Ctx) error {
 	h.jobsMutex.RUnlock()
 
 	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusNotFound).JSON(internalModels.NewErrorResponse(
 			"job_not_found",
 			"Batch job not found",
 			nil,
 		))
 	}
 
-	return c.JSON(models.NewSuccessResponse(job, "Job status retrieved successfully"))
+	return c.JSON(internalModels.NewSuccessResponse(job, "Job status retrieved successfully"))
 }
 
 // GetBatchJobResults handles GET /api/batch/{job_id}/results - Get completed results
 func (h *BatchHandler) GetBatchJobResults(c *fiber.Ctx) error {
 	jobID := c.Params("job_id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"Job ID is required",
 			nil,
@@ -210,7 +210,7 @@ func (h *BatchHandler) GetBatchJobResults(c *fiber.Ctx) error {
 	h.jobsMutex.RUnlock()
 
 	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusNotFound).JSON(internalModels.NewErrorResponse(
 			"job_not_found",
 			"Batch job not found",
 			nil,
@@ -218,7 +218,7 @@ func (h *BatchHandler) GetBatchJobResults(c *fiber.Ctx) error {
 	}
 
 	if job.Status != "completed" && job.Status != "failed" {
-		return c.Status(fiber.StatusConflict).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusConflict).JSON(internalModels.NewErrorResponse(
 			"job_not_ready",
 			"Job is not yet completed",
 			map[string]interface{}{"current_status": job.Status},
@@ -233,14 +233,14 @@ func (h *BatchHandler) GetBatchJobResults(c *fiber.Ctx) error {
 		"completed_at": job.CompletedAt,
 	}
 
-	return c.JSON(models.NewSuccessResponse(response, "Job results retrieved successfully"))
+	return c.JSON(internalModels.NewSuccessResponse(response, "Job results retrieved successfully"))
 }
 
 // CancelBatchJob handles DELETE /api/batch/{job_id} - Cancel running job
 func (h *BatchHandler) CancelBatchJob(c *fiber.Ctx) error {
 	jobID := c.Params("job_id")
 	if jobID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"Job ID is required",
 			nil,
@@ -258,14 +258,14 @@ func (h *BatchHandler) CancelBatchJob(c *fiber.Ctx) error {
 	h.jobsMutex.Unlock()
 
 	if !exists {
-		return c.Status(fiber.StatusNotFound).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusNotFound).JSON(internalModels.NewErrorResponse(
 			"job_not_found",
 			"Batch job not found",
 			nil,
 		))
 	}
 
-	return c.JSON(models.NewSuccessResponse(map[string]interface{}{
+	return c.JSON(internalModels.NewSuccessResponse(map[string]interface{}{
 		"job_id": jobID,
 		"status": job.Status,
 	}, "Job cancelled successfully"))
@@ -587,12 +587,12 @@ func (h *BatchHandler) performBatchIndexing(jobID string, results []BatchResult)
 	log.Printf("[BATCH-INDEX] 🚀 Starting batch indexing for job %s (%d documents)", jobID, len(pendingDocs))
 	
 	// Convert pending documents to search documents
-	var searchDocs []*searchModels.Document
+	var searchDocs []*models.Document
 	docMap := make(map[string]*PendingDocument) // Track pending docs by ID
 	
 	for _, pendingDoc := range pendingDocs {
 		// Create search document from classification result
-		searchDoc := &searchModels.Document{
+		searchDoc := &models.Document{
 			ID:            pendingDoc.Document.DocumentID,
 			FileName:      pendingDoc.Document.DocumentID, // Use ID as filename if no filename
 			FilePath:      pendingDoc.Document.DocumentPath,
@@ -605,10 +605,10 @@ func (h *BatchHandler) performBatchIndexing(jobID string, results []BatchResult)
 		if pendingDoc.Classification != nil {
 			// Create metadata if not exists
 			if searchDoc.Metadata == nil {
-				searchDoc.Metadata = &searchModels.DocumentMetadata{}
+				searchDoc.Metadata = &models.DocumentMetadata{}
 			}
 			searchDoc.DocType = pendingDoc.Classification.DocumentType
-			searchDoc.Metadata.DocumentType = searchModels.DocumentType(pendingDoc.Classification.DocumentType)
+			searchDoc.Metadata.DocumentType = models.DocumentType(pendingDoc.Classification.DocumentType)
 			searchDoc.Metadata.Subject = pendingDoc.Classification.Subject
 			searchDoc.Metadata.Summary = pendingDoc.Classification.Summary
 			searchDoc.Metadata.Confidence = pendingDoc.Classification.Confidence

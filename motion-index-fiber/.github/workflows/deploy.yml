@@ -1,0 +1,232 @@
+name: Deploy to DigitalOcean App Platform
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: registry.digitalocean.com/motion-index
+  IMAGE_NAME: motion-index-fiber
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-eng poppler-utils
+      
+      - name: Download Go modules
+        run: go mod download
+      
+      - name: Verify Go modules
+        run: go mod verify
+      
+      - name: Run tests
+        run: go test ./... -v -short -coverprofile=coverage.out
+      
+      - name: Check test coverage
+        run: go tool cover -func=coverage.out
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.out
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      
+      - name: Run Gosec Security Scanner
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: './...'
+
+  build-and-deploy:
+    name: Build and Deploy
+    needs: [test, security]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Log in to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 1200
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Deploy to App Platform (Production)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Update the app spec with the new image
+          sed -i "s|dockerfile_path: Dockerfile|dockerfile_path: Dockerfile|g" deployments/digitalocean/app.yaml
+          
+          # Deploy to App Platform
+          if doctl apps list | grep -q "motion-index-fiber"; then
+            echo "Updating existing app..."
+            APP_ID=$(doctl apps list --format ID,Name --no-header | grep motion-index-fiber | awk '{print $1}')
+            doctl apps update $APP_ID --spec deployments/digitalocean/app.yaml --wait
+          else
+            echo "Creating new app..."
+            doctl apps create --spec deployments/digitalocean/app.yaml --wait
+          fi
+      
+      - name: Deploy to App Platform (Staging)
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          # Create staging app spec
+          sed 's/motion-index-fiber/motion-index-fiber-staging/g' deployments/digitalocean/app.yaml > staging-app.yaml
+          sed -i 's/branch: main/branch: staging/g' staging-app.yaml
+          
+          # Deploy to staging
+          if doctl apps list | grep -q "motion-index-fiber-staging"; then
+            echo "Updating staging app..."
+            APP_ID=$(doctl apps list --format ID,Name --no-header | grep motion-index-fiber-staging | awk '{print $1}')
+            doctl apps update $APP_ID --spec staging-app.yaml --wait
+          else
+            echo "Creating staging app..."
+            doctl apps create --spec staging-app.yaml --wait
+          fi
+      
+      - name: Get app info
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            APP_NAME="motion-index-fiber"
+          else
+            APP_NAME="motion-index-fiber-staging"
+          fi
+          
+          APP_ID=$(doctl apps list --format ID,Name --no-header | grep $APP_NAME | awk '{print $1}')
+          doctl apps get $APP_ID
+          
+          # Get the live URL
+          LIVE_URL=$(doctl apps get $APP_ID --format LiveURL --no-header)
+          echo "Application deployed to: $LIVE_URL"
+          
+          # Add deployment status to summary
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** $([ "${{ github.ref }}" == "refs/heads/main" ] && echo "Production" || echo "Staging")" >> $GITHUB_STEP_SUMMARY
+          echo "- **App ID:** $APP_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Live URL:** $LIVE_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  health-check:
+    name: Health Check
+    needs: [build-and-deploy]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    
+    steps:
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Wait for deployment and health check
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            APP_NAME="motion-index-fiber"
+          else
+            APP_NAME="motion-index-fiber-staging"
+          fi
+          
+          APP_ID=$(doctl apps list --format ID,Name --no-header | grep $APP_NAME | awk '{print $1}')
+          
+          # Wait for app to be ready
+          echo "Waiting for app to be ready..."
+          timeout=300  # 5 minutes
+          elapsed=0
+          
+          while [ $elapsed -lt $timeout ]; do
+            STATUS=$(doctl apps get $APP_ID --format Status --no-header)
+            echo "Current status: $STATUS"
+            
+            if [ "$STATUS" == "ACTIVE" ]; then
+              echo "App is active!"
+              break
+            fi
+            
+            sleep 30
+            elapsed=$((elapsed + 30))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "Timeout waiting for app to become active"
+            exit 1
+          fi
+          
+          # Get live URL and perform health check
+          LIVE_URL=$(doctl apps get $APP_ID --format LiveURL --no-header)
+          echo "Performing health check on: $LIVE_URL"
+          
+          # Wait a bit for the service to fully start
+          sleep 30
+          
+          # Health check with retries
+          for i in {1..5}; do
+            if curl -f "$LIVE_URL/health"; then
+              echo "Health check passed!"
+              break
+            else
+              echo "Health check attempt $i failed, retrying..."
+              sleep 30
+            fi
+            
+            if [ $i -eq 5 ]; then
+              echo "Health check failed after 5 attempts"
+              exit 1
+            fi
+          done

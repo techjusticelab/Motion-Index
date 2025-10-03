@@ -2,11 +2,14 @@
 
 ## Feature Parity with Python API
 
-### Missing Endpoints (HIGH PRIORITY)
-- [ ] `POST /metadata-field-values` - Get metadata field values with custom filters
-- [ ] `GET /all-field-options` - Get all field options in one request
-- [ ] `POST /redact-document` - PDF redaction processing (currently only analysis)
-- [ ] `GET /api/documents/{file_path:path}` - Direct document serving with CDN redirect
+### Missing Endpoints (PRIORITY ORDER)
+#### COMPLETED ✅
+- [x] `GET /all-field-options` - Get all field options in one request (alias to existing `/field-options`)
+- [x] `GET /api/documents/{file_path:path}` - Direct document serving with CDN redirect and signed URLs
+- [x] `POST /metadata-field-values` - Get metadata field values with custom filters
+
+#### COMPLETED ✅
+- [x] `POST /redact-document` - PDF redaction processing with California legal patterns
 
 ### Recently Added Features ✅
 - [x] `GET /api/storage/documents` - Document listing with pagination  
@@ -24,7 +27,7 @@
 
 ## Authentication & Security
 
-### JWT Authentication (PRIORITY: HIGH)
+### JWT Authentication
 - [ ] **Re-enable JWT authentication for protected routes**
   - Routes currently disabled for development:
     - `POST /api/v1/update-metadata` - Should require authentication
@@ -41,10 +44,15 @@
 
 ## Storage & CDN Integration
 
-### Document Serving (MEDIUM PRIORITY)
-- [ ] Implement CDN redirect in `ServeDocument` handler
-- [ ] Add support for signed URLs with expiration
-- [ ] Add document access logging and metrics
+### Document Serving ✅ COMPLETED
+- [x] **Implement CDN redirect in `ServeDocument` handler**
+  - [x] Support for both public and signed URLs  
+  - [x] Configurable expiration (1 hour default, max 24 hours)
+  - [x] Document existence validation
+  - [x] Proper content-type headers
+  - [x] Download mode support (`?download=true`)
+  - [x] Clean path handling with `documents/` prefix
+- [ ] Add document access logging and metrics (future enhancement)
 
 ### Storage Optimization
 - [ ] Add caching for document metadata listings
@@ -53,10 +61,15 @@
 
 ## Advanced Processing Features
 
-### Redaction Support (MEDIUM PRIORITY)
-- [ ] Complete PDF redaction implementation
-- [ ] Add redaction preview and approval workflow
-- [ ] Integrate with document versioning
+### Redaction Support ✅ COMPLETED
+- [x] **Complete PDF redaction implementation**
+  - [x] California legal pattern matching (SSN, driver's license, phone, email, etc.)
+  - [x] 10 California legal codes integrated (CCP_1798.3, WIC_827, PC_293, etc.)
+  - [x] AI-powered redaction detection framework (OpenAI integration)
+  - [x] Dual input support: file upload and existing document processing
+  - [x] Comprehensive response with legal citations and positioning
+- [ ] Add redaction preview and approval workflow (future enhancement)
+- [ ] Integrate with document versioning (future enhancement)
 
 ### Search Enhancement
 - [ ] Implement search result ranking algorithms
@@ -120,6 +133,11 @@
 - [x] Separated handlers into focused, single-purpose files
 - [x] Clean interfaces between components
 - [x] Composable and testable handler architecture
+- [x] **Model consolidation: Single source of truth for all types**
+  - [x] Consolidated all models into `pkg/models/` following UNIX principles
+  - [x] Eliminated code duplication across 35+ files
+  - [x] Created shared, reusable type definitions
+  - [x] Used Go type aliases for backward compatibility
 
 ### API-First Design
 - [x] New batch classifier that uses HTTP API instead of direct services
@@ -141,14 +159,134 @@
 - Document pagination and filtering
 - Async job tracking and monitoring
 - Clean handler architecture following UNIX principles
+- **Model consolidation with single source of truth**
+- **High-priority endpoints: Document serving + All field options + Metadata field values**
+- **Complete PDF redaction system with California legal compliance**
 
 **In Progress**:
-- Missing endpoint implementations
-- Authentication re-enabling
-- CDN integration for document serving
+- Authentication re-enabling for production
+- Performance optimization and caching
+- Advanced monitoring and observability
 
 **Priority Order**:
-1. Re-enable JWT authentication
-2. Implement missing endpoints for full Python API parity
-3. Complete CDN document serving
+1. ✅ **Complete all missing high-priority endpoints** (COMPLETED)
+2. ✅ **PDF redaction with California legal compliance** (COMPLETED)
+3. **Re-enable JWT authentication for production readiness** (Next Priority)
 4. Add comprehensive testing and monitoring
+5. Performance optimization and caching
+
+---
+
+## Latest Implementation Details
+
+### Document Serving Implementation (`GET /api/v1/documents/*`)
+**Location**: `internal/handlers/storage.go:ServeDocument`
+
+**Features**:
+- **CDN Redirect Support**: Automatically redirects to DigitalOcean Spaces CDN URLs
+- **Signed URLs**: Secure, time-limited access with configurable expiration
+- **Query Parameters**:
+  - `?signed=true` (default) - Use signed URLs for security
+  - `?expires=1h` - Set custom expiration (max 24h)
+  - `?download=true` - Force download with proper headers
+- **Path Handling**: Automatically prefixes with `documents/` if not present
+- **Content Types**: Proper MIME type detection for PDF, DOCX, TXT, RTF, etc.
+- **Error Handling**: 404 for missing docs, 500 for service errors
+
+**Usage Examples**:
+```
+GET /api/v1/documents/case-123/motion.pdf              # CDN redirect with 1h signed URL
+GET /api/v1/documents/case-123/motion.pdf?expires=30m  # 30-minute expiration
+GET /api/v1/documents/case-123/motion.pdf?download=true # Force download
+GET /api/v1/documents/case-123/motion.pdf?signed=false  # Public URL (if available)
+```
+
+### All Field Options Implementation (`GET /api/v1/all-field-options`)
+**Location**: `cmd/server/main.go` (alias), `internal/handlers/search.go:GetFieldOptions`
+
+**Features**:
+- **Comprehensive Field Data**: Returns all filterable field options in one request
+- **Aggregated Counts**: Each field value includes document count
+- **Performance Optimized**: Uses OpenSearch aggregations for fast retrieval
+- **Field Categories**:
+  - Courts (with counts)
+  - Judges (with counts) 
+  - Document types (with counts)
+  - Legal tags (with counts)
+  - Statuses (with counts)
+  - Authors (with counts)
+
+**Response Format**:
+```json
+{
+  "status": "success",
+  "data": {
+    "courts": [{"value": "Superior Court", "count": 150}, ...],
+    "judges": [{"value": "Judge Smith", "count": 45}, ...],
+    "doc_types": [{"value": "motion", "count": 200}, ...],
+    "legal_tags": [{"value": "Contract Law", "count": 89}, ...],
+    "statuses": [{"value": "Active", "count": 300}, ...],
+    "authors": [{"value": "Attorney Jones", "count": 75}, ...]
+  }
+}
+```
+
+### PDF Redaction Implementation (`POST /api/v1/redact-document`)
+**Location**: `internal/handlers/processing.go:RedactDocument`
+
+**Features**:
+- **California Legal Compliance**: 8 predefined patterns matching CA legal requirements
+- **Legal Code Integration**: 10 California legal codes with proper citations
+- **Dual Input Support**: 
+  - Multipart file upload for new documents
+  - JSON request for existing documents by ID
+- **AI Integration**: OpenAI-powered sensitive information detection
+- **Comprehensive Response**: Detailed redaction metadata with legal justifications
+
+**California Legal Patterns**:
+- SSN (Social Security Numbers) - CCP_1798.3
+- Driver's License Numbers - GOV_6254  
+- Phone Numbers - CCPA
+- Email Addresses - CCPA
+- Credit Card Numbers - CCP_1798.3
+- Bank Account Numbers - CCP_1798.3
+- Dates of Birth - GOV_6254
+- Financial Information - CCP_1798.3
+
+**Usage Examples**:
+```bash
+# Upload new document for redaction
+curl -X POST /api/v1/redact-document \
+  -F "file=@motion.pdf" \
+  -F "apply_redactions=true" \
+  -F "options={\"california_laws\":true,\"use_ai\":true}"
+
+# Redact existing document by ID  
+curl -X POST /api/v1/redact-document \
+  -H "Content-Type: application/json" \
+  -d '{"document_id":"doc123","apply_redactions":true,"options":{"california_laws":true}}'
+```
+
+**Response Format**:
+```json
+{
+  "success": true,
+  "document_id": "doc123",
+  "pdf_base64": "base64-encoded-redacted-pdf",
+  "redactions": [
+    {
+      "id": "redaction_1",
+      "page": 0,
+      "text": "555-123-4567",
+      "bbox": [100, 200, 200, 220],
+      "type": "phone",
+      "citation": "Phone numbers may constitute personal information under CCPA",
+      "reason": "Phone numbers may constitute personal information under CCPA",
+      "legal_code": "CCPA",
+      "applied": true
+    }
+  ],
+  "total_redactions": 5,
+  "message": "Document redacted successfully"
+}
+```

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // Builder implements the QueryBuilder interface for OpenSearch queries

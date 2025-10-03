@@ -107,7 +107,7 @@ func New(cfg *config.Config) (*Handlers, error) {
 
 	return &Handlers{
 		Health:       NewHealthHandler(storageService, searchService),
-		Processing:   NewProcessingHandler(processingPipeline, storageService, searchService),
+		Processing:   NewProcessingHandler(cfg, processingPipeline, storageService, searchService),
 		Search:       NewSearchHandler(searchService),
 		Storage:      NewStorageHandler(cfg, storageService),
 		Batch:        NewBatchHandler(queueManager, storageService, searchService, classifierService, extractorService),

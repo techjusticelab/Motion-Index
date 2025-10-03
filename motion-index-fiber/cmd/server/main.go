@@ -11,7 +11,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/joho/godotenv"
@@ -45,11 +44,18 @@ func main() {
 	app.Use(logger.New(logger.Config{
 		Format: "[${time}] ${status} - ${method} ${path} - ${latency}\n",
 	}))
-	app.Use(helmet.New())
+	
+	// Temporarily disabled security middleware for embedding issues
+	// TODO: Re-enable with proper configuration for production
+	// app.Use(helmet.New())
+	
+	// Completely disable helmet for now to allow unrestricted access
+	// app.Use(helmet.New(helmet.Config{...}))
+	
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     cfg.Server.AllowedOrigins,
+		AllowOrigins:     "*", // Allow all origins for now
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Requested-With,X-HTTP-Method-Override",
+		AllowHeaders:     "*", // Allow all headers
 		AllowCredentials: true,
 		ExposeHeaders:    "Content-Length,Content-Type,X-Total-Count",
 	}))
@@ -92,14 +98,39 @@ func main() {
 	// Public routes
 	api.Post("/categorise", h.Processing.UploadDocument)
 	api.Post("/analyze-redactions", h.Processing.AnalyzeRedactions)
+	api.Post("/redact-document", h.Processing.RedactDocument)
 	api.Post("/search", h.Search.SearchDocuments)
 	api.Get("/legal-tags", h.Search.GetLegalTags)
 	api.Get("/document-types", h.Search.GetDocumentTypes)
 	api.Get("/document-stats", h.Search.GetDocumentStats)
 	api.Get("/field-options", h.Search.GetFieldOptions)
+	api.Get("/all-field-options", h.Search.GetFieldOptions)  // Alias for comprehensive field options
+	api.Get("/metadata-fields", h.Search.GetMetadataFields)
 	api.Get("/metadata-fields/:field", h.Search.GetMetadataFieldValues)
+	api.Post("/metadata-field-values", h.Search.PostMetadataFieldValues)
+	api.Get("/documents/:id/redactions", h.Search.GetDocumentRedactions)
 	api.Get("/documents/:id", h.Search.GetDocument)
-	api.Get("/documents/*", h.Storage.ServeDocument)
+
+	// File serving routes (separate from document metadata routes)
+	api.Get("/files/search", h.Storage.FindDocumentsByName)
+	
+	// Add middleware for file serving to allow embedding
+	api.Get("/files/*", func(c *fiber.Ctx) error {
+		// Remove all restrictions for embedding - TEMPORARY for development
+		// TODO: Add proper security controls for production
+		
+		// Allow framing from any origin
+		c.Set("X-Frame-Options", "")
+		c.Response().Header.Del("X-Frame-Options")
+		
+		// Remove all restrictive CORS policies
+		c.Response().Header.Del("Cross-Origin-Embedder-Policy")
+		c.Response().Header.Del("Cross-Origin-Resource-Policy")
+		c.Response().Header.Del("Cross-Origin-Opener-Policy")
+		
+		// Continue to the actual file serving handler
+		return h.Storage.ServeDocument(c)
+	})
 
 	// Storage routes for document management
 	storage := api.Group("/storage")

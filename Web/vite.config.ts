@@ -8,6 +8,8 @@ export default defineConfig({
 		sveltekit(),
 	],
 	server: {
-		allowedHosts: ['motionindex.techjusticelab.org']
+		allowedHosts: ['motionindex.techjusticelab.org'],
+		cors: true,
+		host: '0.0.0.0'  // Allow external access
 	}
 });

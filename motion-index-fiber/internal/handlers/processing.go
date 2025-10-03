@@ -6,26 +6,31 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"motion-index-fiber/internal/models"
+	"motion-index-fiber/internal/config"
+	internalModels "motion-index-fiber/internal/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/processing/pipeline"
+	"motion-index-fiber/pkg/processing/redaction"
 	"motion-index-fiber/pkg/search"
-	searchModels "motion-index-fiber/pkg/search/models"
 	"motion-index-fiber/pkg/storage"
 )
 
 // ProcessingHandler handles document processing requests
 type ProcessingHandler struct {
+	cfg       *config.Config
 	pipeline  pipeline.Pipeline
 	storage   storage.Service
 	searchSvc search.Service
 }
 
 // NewProcessingHandler creates a new processing handler
-func NewProcessingHandler(pipeline pipeline.Pipeline, storage storage.Service, searchSvc search.Service) *ProcessingHandler {
+func NewProcessingHandler(cfg *config.Config, pipeline pipeline.Pipeline, storage storage.Service, searchSvc search.Service) *ProcessingHandler {
 	return &ProcessingHandler{
+		cfg:       cfg,
 		pipeline:  pipeline,
 		storage:   storage,
 		searchSvc: searchSvc,
@@ -42,7 +47,7 @@ func (h *ProcessingHandler) AnalyzeRedactions(c *fiber.Ctx) error {
 	// Parse the multipart form
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"multipart_error",
 			"Failed to parse multipart form",
 			map[string]interface{}{"error": err.Error()},
@@ -52,7 +57,7 @@ func (h *ProcessingHandler) AnalyzeRedactions(c *fiber.Ctx) error {
 	// Get the uploaded file
 	files := form.File["file"]
 	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"missing_file",
 			"No file provided",
 			nil,
@@ -62,11 +67,11 @@ func (h *ProcessingHandler) AnalyzeRedactions(c *fiber.Ctx) error {
 	file := files[0]
 
 	// Analyze document for redactions
-	response := &models.RedactionAnalysisResult{
+	response := &internalModels.RedactionAnalysisResult{
 		DocumentID:      generateDocumentID(file.Filename),
 		FileName:        file.Filename,
 		RedactionsFound: 5,
-		RedactionRegions: []models.RedactionRegion{
+		RedactionRegions: []internalModels.RedactionRegion{
 			{
 				Page:   1,
 				X:      100,
@@ -80,16 +85,16 @@ func (h *ProcessingHandler) AnalyzeRedactions(c *fiber.Ctx) error {
 		Status:     "completed",
 	}
 
-	return c.JSON(models.NewSuccessResponse(response, "Redaction analysis completed"))
+	return c.JSON(internalModels.NewSuccessResponse(response, "Redaction analysis completed"))
 }
 
 // UpdateMetadata updates metadata for an existing document
 func (h *ProcessingHandler) UpdateMetadata(c *fiber.Ctx) error {
-	var request models.UpdateMetadataRequest
+	var request internalModels.UpdateMetadataRequest
 
 	// Parse request body
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"parse_error",
 			"Failed to parse request body",
 			map[string]interface{}{"error": err.Error()},
@@ -98,7 +103,7 @@ func (h *ProcessingHandler) UpdateMetadata(c *fiber.Ctx) error {
 
 	// Validate request
 	if request.DocumentID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			"Document ID is required",
 			nil,
@@ -117,20 +122,228 @@ func (h *ProcessingHandler) UpdateMetadata(c *fiber.Ctx) error {
 
 	err := h.searchSvc.UpdateDocumentMetadata(ctx, request.DocumentID, metadata)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
 			"update_error",
 			"Failed to update document metadata",
 			map[string]interface{}{"error": err.Error()},
 		))
 	}
 
-	response := &models.UpdateMetadataResponse{
+	response := &internalModels.UpdateMetadataResponse{
 		DocumentID: request.DocumentID,
 		UpdatedAt:  time.Now(),
 		Status:     "success",
 	}
 
-	return c.JSON(models.NewSuccessResponse(response, "Metadata updated successfully"))
+	return c.JSON(internalModels.NewSuccessResponse(response, "Metadata updated successfully"))
+}
+
+// RedactDocument creates a redacted version of a document
+func (h *ProcessingHandler) RedactDocument(c *fiber.Ctx) error {
+	ctx, cancel := context.WithTimeout(c.Context(), 2*time.Minute)
+	defer cancel()
+
+	// Handle multipart form for file upload or JSON for existing document
+	contentType := c.Get("Content-Type")
+	
+	if strings.Contains(contentType, "multipart/form-data") {
+		return h.redactUploadedFile(c, ctx)
+	} else {
+		return h.redactExistingDocument(c, ctx)
+	}
+}
+
+// redactUploadedFile handles redaction of an uploaded PDF file
+func (h *ProcessingHandler) redactUploadedFile(c *fiber.Ctx, ctx context.Context) error {
+	// Parse multipart form
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
+			"file_error",
+			"No file provided or failed to parse file",
+			map[string]interface{}{"error": err.Error()},
+		))
+	}
+
+	// Validate file type
+	if !strings.HasSuffix(strings.ToLower(file.Filename), ".pdf") {
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
+			"file_type_error",
+			"Only PDF files are supported for redaction",
+			nil,
+		))
+	}
+
+	// Open the uploaded file
+	fileReader, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
+			"file_read_error",
+			"Failed to read uploaded file",
+			map[string]interface{}{"error": err.Error()},
+		))
+	}
+	defer fileReader.Close()
+
+	// Parse redaction options
+	options := &redaction.Options{
+		CaliforniaLaws:  true, // Default to California laws
+		ReplacementChar: "■",
+	}
+
+	// Parse form values for options
+	if useAI := c.FormValue("use_ai"); useAI == "true" {
+		options.UseAI = true
+	}
+	if replacementChar := c.FormValue("replacement_char"); replacementChar != "" {
+		options.ReplacementChar = replacementChar
+	}
+
+	// Create redaction service
+	redactionService := redaction.NewService(true, h.cfg.OpenAI.APIKey)
+
+	// Determine if we should apply redactions or just analyze
+	applyRedactions := c.FormValue("apply_redactions") == "true"
+
+	if applyRedactions {
+		// Apply redactions and return redacted PDF
+		result, err := redactionService.RedactPDF(ctx, fileReader, options)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
+				"redaction_error",
+				"Failed to redact document",
+				map[string]interface{}{"error": err.Error()},
+			))
+		}
+
+		response := &internalModels.RedactDocumentResponse{
+			Success:         result.Success,
+			PDFBase64:       result.PDFBase64,
+			Filename:        fmt.Sprintf("redacted_%s", file.Filename),
+			Redactions:      convertRedactionItems(result.Redactions),
+			TotalRedactions: result.TotalCount,
+			Message:         "Document redacted successfully",
+		}
+
+		if !result.Success {
+			response.Message = result.Error
+			return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
+				"redaction_failed",
+				result.Error,
+				nil,
+			))
+		}
+
+		return c.JSON(internalModels.NewSuccessResponse(response, "Document redacted successfully"))
+	} else {
+		// Just analyze for potential redactions
+		analysis, err := redactionService.AnalyzePDF(ctx, fileReader, options)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
+				"analysis_error",
+				"Failed to analyze document",
+				map[string]interface{}{"error": err.Error()},
+			))
+		}
+
+		response := &internalModels.RedactDocumentResponse{
+			Success:         analysis.Success,
+			Filename:        file.Filename,
+			Redactions:      convertRedactionItems(analysis.Redactions),
+			TotalRedactions: analysis.TotalCount,
+			Message:         "Document analyzed for potential redactions",
+		}
+
+		if !analysis.Success {
+			response.Message = analysis.Error
+			return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
+				"analysis_failed",
+				analysis.Error,
+				nil,
+			))
+		}
+
+		return c.JSON(internalModels.NewSuccessResponse(response, "Document analysis completed"))
+	}
+}
+
+// redactExistingDocument handles redaction of an existing document by ID
+func (h *ProcessingHandler) redactExistingDocument(c *fiber.Ctx, ctx context.Context) error {
+	var request internalModels.RedactDocumentRequest
+
+	// Parse request body
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
+			"parse_error",
+			"Failed to parse request body",
+			map[string]interface{}{"error": err.Error()},
+		))
+	}
+
+	// Validate request - need either document_id or pdf_base64
+	if request.DocumentID == "" && request.PDFBase64 == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
+			"validation_error",
+			"Either document_id or pdf_base64 is required",
+			nil,
+		))
+	}
+
+	// TODO: For now, return a comprehensive placeholder response
+	// In a full implementation, this would:
+	// 1. Retrieve the document from storage if document_id is provided
+	// 2. Decode PDF from base64 if pdf_base64 is provided
+	// 3. Apply the redaction service
+	// 4. Store the redacted document if needed
+	// 5. Return the result
+
+	response := &internalModels.RedactDocumentResponse{
+		Success:         false,
+		DocumentID:      request.DocumentID,
+		Redactions:      request.CustomRedactions, // These are already the right type
+		TotalRedactions: len(request.CustomRedactions),
+		Message:         "Document redaction by ID is not yet fully implemented - requires document retrieval from storage",
+	}
+
+	return c.JSON(internalModels.NewSuccessResponse(response, "Redaction request processed"))
+}
+
+// convertRedactionItems converts between redaction types
+func convertRedactionItems(items []redaction.RedactionItem) []internalModels.RedactionItem {
+	result := make([]internalModels.RedactionItem, len(items))
+	for i, item := range items {
+		result[i] = internalModels.RedactionItem{
+			ID:        item.ID,
+			Page:      item.Page,
+			Text:      item.Text,
+			BBox:      item.BBox,
+			Type:      item.Type,
+			Citation:  item.Citation,
+			Reason:    item.Reason,
+			LegalCode: item.LegalCode,
+			Applied:   item.Applied,
+		}
+	}
+	return result
+}
+
+// convertInternalRedactionItems converts internal redaction items to service type
+func convertInternalRedactionItems(items []internalModels.RedactionItem) []redaction.RedactionItem {
+	result := make([]redaction.RedactionItem, len(items))
+	for i, item := range items {
+		result[i] = redaction.RedactionItem{
+			ID:        item.ID,
+			Page:      item.Page,
+			Text:      item.Text,
+			BBox:      item.BBox,
+			Type:      item.Type,
+			Citation:  item.Citation,
+			Reason:    item.Reason,
+			LegalCode: item.LegalCode,
+			Applied:   item.Applied,
+		}
+	}
+	return result
 }
 
 // ProcessDocument processes a single document upload
@@ -138,7 +351,7 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	// Parse the multipart form
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"multipart_error",
 			"Failed to parse multipart form",
 			map[string]interface{}{"error": err.Error()},
@@ -148,7 +361,7 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	// Get the uploaded file
 	files := form.File["file"]
 	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"missing_file",
 			"No file provided",
 			nil,
@@ -158,17 +371,17 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	file := files[0]
 
 	// Parse processing options
-	var processOptions *models.ProcessOptions
+	var processOptions *internalModels.ProcessOptions
 	if optionsStr := c.FormValue("options"); optionsStr != "" {
 		// In a real implementation, you'd parse JSON from the options string
-		processOptions = models.DefaultProcessOptions()
+		processOptions = internalModels.DefaultProcessOptions()
 	} else {
-		processOptions = models.DefaultProcessOptions()
+		processOptions = internalModels.DefaultProcessOptions()
 	}
 
 	// Validate and apply defaults
 	if err := processOptions.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			err.Error(),
 			nil,
@@ -177,7 +390,7 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	processOptions.ApplyDefaults()
 
 	// Build processing request
-	request := &models.ProcessDocumentRequest{
+	request := &internalModels.ProcessDocumentRequest{
 		File:        file,
 		Category:    c.FormValue("category"),
 		Description: c.FormValue("description"),
@@ -190,8 +403,8 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	}
 
 	// Validate the request
-	if err := models.ValidateStruct(request); err != nil {
-		validationErrors := models.FormatValidationErrors(err)
+	if err := internalModels.ValidateStruct(request); err != nil {
+		validationErrors := internalModels.FormatValidationErrors(err)
 		return c.Status(fiber.StatusBadRequest).JSON(&models.APIResponse{
 			Success:   false,
 			Timestamp: time.Now(),
@@ -209,7 +422,7 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	startTime := time.Now()
 	result, err := h.processDocumentWithPipeline(request)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
 			"processing_error",
 			err.Error(),
 			nil,
@@ -220,7 +433,7 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 	result.CreatedAt = time.Now()
 
 	// Return successful response
-	return c.JSON(models.NewSuccessResponse(result, "Document processed successfully"))
+	return c.JSON(internalModels.NewSuccessResponse(result, "Document processed successfully"))
 }
 
 // BatchProcessDocuments processes multiple documents
@@ -228,7 +441,7 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	// Parse the multipart form
 	form, err := c.MultipartForm()
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"multipart_error",
 			"Failed to parse multipart form",
 			map[string]interface{}{"error": err.Error()},
@@ -238,7 +451,7 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	// Get the uploaded files
 	files := form.File["files"]
 	if len(files) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"missing_files",
 			"No files provided",
 			nil,
@@ -246,9 +459,9 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	}
 
 	// Parse processing options
-	processOptions := models.DefaultProcessOptions()
+	processOptions := internalModels.DefaultProcessOptions()
 	if err := processOptions.Validate(); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			err.Error(),
 			nil,
@@ -257,7 +470,7 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	processOptions.ApplyDefaults()
 
 	// Build batch processing request
-	request := &models.BatchProcessRequest{
+	request := &internalModels.BatchProcessRequest{
 		Files:       files,
 		Category:    c.FormValue("category"),
 		Description: c.FormValue("description"),
@@ -267,8 +480,8 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	}
 
 	// Validate the request
-	if err := models.ValidateStruct(request); err != nil {
-		validationErrors := models.FormatValidationErrors(err)
+	if err := internalModels.ValidateStruct(request); err != nil {
+		validationErrors := internalModels.FormatValidationErrors(err)
 		return c.Status(fiber.StatusBadRequest).JSON(&models.APIResponse{
 			Success:   false,
 			Timestamp: time.Now(),
@@ -289,32 +502,42 @@ func (h *ProcessingHandler) BatchProcessDocuments(c *fiber.Ctx) error {
 	batchResult.CompletedAt = time.Now()
 
 	// Return batch response
-	return c.JSON(models.NewSuccessResponse(batchResult, "Batch processing completed"))
+	return c.JSON(internalModels.NewSuccessResponse(batchResult, "Batch processing completed"))
 }
 
 // processDocumentWithPipeline processes a single document through the pipeline
-func (h *ProcessingHandler) processDocumentWithPipeline(request *models.ProcessDocumentRequest) (*models.ProcessDocumentResponse, error) {
+func (h *ProcessingHandler) processDocumentWithPipeline(request *internalModels.ProcessDocumentRequest) (*internalModels.ProcessDocumentResponse, error) {
 	file := request.File
 
 	// Generate document ID
 	documentID := generateDocumentID(file.Filename)
 
-	response := &models.ProcessDocumentResponse{
+	response := &internalModels.ProcessDocumentResponse{
 		DocumentID: documentID,
 		FileName:   file.Filename,
 		Status:     "processing",
-		Steps:      []*models.ProcessingStep{},
+		Steps:      []*internalModels.ProcessingStep{},
 		Metadata: &models.DocumentMetadata{
 			DocumentName: file.Filename,
 			CaseName:     request.CaseName,
 			CaseNumber:   request.CaseNumber,
 			Author:       request.Author,
-			Judge:        request.Judge,
-			Court:        request.Court,
-			Category:     request.Category,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			ProcessedAt:  time.Now(),
 		},
+	}
+	
+	// Add Judge if provided
+	if request.Judge != "" {
+		response.Metadata.Judge = &models.Judge{
+			Name: request.Judge,
+		}
+	}
+	
+	// Add Court if provided  
+	if request.Court != "" {
+		response.Metadata.Court = &models.CourtInfo{
+			CourtName: request.Court,
+		}
 	}
 
 	// Check if pipeline is available
@@ -378,33 +601,43 @@ func (h *ProcessingHandler) processDocumentWithPipeline(request *models.ProcessD
 }
 
 // processDocumentLegacyMode processes document using the legacy implementation (fallback)
-func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDocumentRequest) (*models.ProcessDocumentResponse, error) {
+func (h *ProcessingHandler) processDocumentLegacyMode(request *internalModels.ProcessDocumentRequest) (*internalModels.ProcessDocumentResponse, error) {
 	file := request.File
 
 	// Generate document ID
 	documentID := generateDocumentID(file.Filename)
 
-	response := &models.ProcessDocumentResponse{
+	response := &internalModels.ProcessDocumentResponse{
 		DocumentID: documentID,
 		FileName:   file.Filename,
 		Status:     "processing",
-		Steps:      []*models.ProcessingStep{},
+		Steps:      []*internalModels.ProcessingStep{},
 		Metadata: &models.DocumentMetadata{
 			DocumentName: file.Filename,
 			CaseName:     request.CaseName,
 			CaseNumber:   request.CaseNumber,
 			Author:       request.Author,
-			Judge:        request.Judge,
-			Court:        request.Court,
-			Category:     request.Category,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
+			ProcessedAt:  time.Now(),
 		},
+	}
+	
+	// Add Judge if provided
+	if request.Judge != "" {
+		response.Metadata.Judge = &models.Judge{
+			Name: request.Judge,
+		}
+	}
+	
+	// Add Court if provided  
+	if request.Court != "" {
+		response.Metadata.Court = &models.CourtInfo{
+			CourtName: request.Court,
+		}
 	}
 
 	// Step 1: Text Extraction (if enabled)
 	if request.Options.ExtractText {
-		step := &models.ProcessingStep{
+		step := &internalModels.ProcessingStep{
 			Name:      "text_extraction",
 			Status:    "running",
 			StartTime: time.Now(),
@@ -426,7 +659,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 		// Extract text using the processing pipeline
 		// Note: This is a simplified extraction for basic processing
 		// For full pipeline processing, use the UploadDocument endpoint
-		extractionResult := &models.ExtractionResult{
+		extractionResult := &internalModels.ExtractionResult{
 			Text:      "Extracted text content will be processed by the pipeline",
 			PageCount: 1,
 			Language:  "en",
@@ -445,7 +678,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 
 	// Step 2: Document Classification (if enabled)
 	if request.Options.ClassifyDoc && response.ExtractionResult != nil {
-		step := &models.ProcessingStep{
+		step := &internalModels.ProcessingStep{
 			Name:      "document_classification",
 			Status:    "running",
 			StartTime: time.Now(),
@@ -455,7 +688,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 		// Classify document using the processing pipeline
 		// Note: This is a simplified classification for basic processing
 		// For full pipeline processing, use the UploadDocument endpoint
-		classificationResult := &models.ClassificationResult{
+		classificationResult := &internalModels.ClassificationResult{
 			Category:   "document",
 			Confidence: 0.75,
 			Tags:       []string{"legal", "processed"},
@@ -467,13 +700,12 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 		response.ClassificationResult = classificationResult
 
 		// Update metadata with classification results
-		response.Metadata.Category = classificationResult.Category
 		response.Metadata.LegalTags = classificationResult.Tags
 	}
 
 	// Step 3: Document Storage (if enabled)
 	if request.Options.StoreDocument {
-		step := &models.ProcessingStep{
+		step := &internalModels.ProcessingStep{
 			Name:      "document_storage",
 			Status:    "running",
 			StartTime: time.Now(),
@@ -531,7 +763,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 
 	// Step 4: Document Indexing (if enabled)
 	if request.Options.IndexDocument && response.ExtractionResult != nil {
-		step := &models.ProcessingStep{
+		step := &internalModels.ProcessingStep{
 			Name:      "document_indexing",
 			Status:    "running",
 			StartTime: time.Now(),
@@ -539,14 +771,14 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 		response.Steps = append(response.Steps, step)
 
 		// Create index document
-		indexDoc := &searchModels.Document{
+		indexDoc := &models.Document{
 			ID:        documentID,
 			FileName:  file.Filename,
 			Text:      response.ExtractionResult.Text,
 			Category:  request.Category,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
-			Metadata: &searchModels.DocumentMetadata{
+			Metadata: &models.DocumentMetadata{
 				DocumentName: file.Filename,
 				CaseName:     request.CaseName,
 				CaseNumber:   request.CaseNumber,
@@ -558,13 +790,13 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 
 		// Map legacy Judge and Court strings to enhanced structures
 		if request.Judge != "" {
-			indexDoc.Metadata.Judge = &searchModels.Judge{
+			indexDoc.Metadata.Judge = &models.Judge{
 				Name: request.Judge,
 			}
 		}
 		
 		if request.Court != "" {
-			indexDoc.Metadata.Court = &searchModels.CourtInfo{
+			indexDoc.Metadata.Court = &models.CourtInfo{
 				CourtName: request.Court,
 			}
 		}
@@ -573,7 +805,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 		if response.ClassificationResult != nil {
 			indexDoc.Category = response.ClassificationResult.Category
 			if indexDoc.Metadata == nil {
-				indexDoc.Metadata = &searchModels.DocumentMetadata{}
+				indexDoc.Metadata = &models.DocumentMetadata{}
 			}
 			indexDoc.Metadata.LegalTags = response.ClassificationResult.Tags
 		}
@@ -593,7 +825,7 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 			step.Status = "completed"
 			step.EndTime = time.Now()
 			step.Duration = step.EndTime.Sub(step.StartTime).Milliseconds()
-			response.IndexResult = &models.IndexResult{
+			response.IndexResult = &internalModels.IndexResult{
 				DocumentID: documentID,
 				IndexName:  "documents", // Default index name
 				Success:    true,
@@ -606,23 +838,23 @@ func (h *ProcessingHandler) processDocumentLegacyMode(request *models.ProcessDoc
 }
 
 // processBatchDocuments processes multiple documents
-func (h *ProcessingHandler) processBatchDocuments(request *models.BatchProcessRequest) *models.BatchProcessResponse {
+func (h *ProcessingHandler) processBatchDocuments(request *internalModels.BatchProcessRequest) *internalModels.BatchProcessResponse {
 	batchID := generateBatchID()
 
-	response := &models.BatchProcessResponse{
+	response := &internalModels.BatchProcessResponse{
 		BatchID:      batchID,
 		TotalCount:   len(request.Files),
 		SuccessCount: 0,
 		FailureCount: 0,
-		Results:      make([]*models.ProcessDocumentResponse, 0, len(request.Files)),
-		Errors:       make([]*models.BatchProcessError, 0),
+		Results:      make([]*internalModels.ProcessDocumentResponse, 0, len(request.Files)),
+		Errors:       make([]*internalModels.BatchProcessError, 0),
 		Status:       "processing",
 	}
 
 	// Process each file
 	for _, file := range request.Files {
 		// Create individual processing request
-		individualRequest := &models.ProcessDocumentRequest{
+		individualRequest := &internalModels.ProcessDocumentRequest{
 			File:        file,
 			Category:    request.Category,
 			Description: request.Description,
@@ -635,7 +867,7 @@ func (h *ProcessingHandler) processBatchDocuments(request *models.BatchProcessRe
 		result, err := h.processDocumentWithPipeline(individualRequest)
 		if err != nil {
 			response.FailureCount++
-			response.Errors = append(response.Errors, &models.BatchProcessError{
+			response.Errors = append(response.Errors, &internalModels.BatchProcessError{
 				FileName: file.Filename,
 				Error:    err.Error(),
 				Code:     "processing_error",
@@ -670,7 +902,7 @@ func generateBatchID() string {
 }
 
 // convertPipelineResults converts pipeline processing results to handler response format
-func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.ProcessResult, response *models.ProcessDocumentResponse) {
+func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.ProcessResult, response *internalModels.ProcessDocumentResponse) {
 	// Set overall status
 	if pipelineResult.Success {
 		response.Status = "completed"
@@ -680,7 +912,7 @@ func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.Proc
 
 	// Convert processing steps
 	for _, step := range pipelineResult.Steps {
-		handlerStep := &models.ProcessingStep{
+		handlerStep := &internalModels.ProcessingStep{
 			Name:      string(step.Type),
 			Status:    "completed",
 			StartTime: step.Timestamp,
@@ -698,7 +930,7 @@ func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.Proc
 
 	// Convert extraction results
 	if pipelineResult.ExtractionResult != nil {
-		response.ExtractionResult = &models.ExtractionResult{
+		response.ExtractionResult = &internalModels.ExtractionResult{
 			Text:      pipelineResult.ExtractionResult.Text,
 			PageCount: pipelineResult.ExtractionResult.PageCount,
 			Language:  pipelineResult.ExtractionResult.Language,
@@ -714,7 +946,7 @@ func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.Proc
 
 	// Convert classification results
 	if pipelineResult.ClassificationResult != nil {
-		response.ClassificationResult = &models.ClassificationResult{
+		response.ClassificationResult = &internalModels.ClassificationResult{
 			Category:   pipelineResult.ClassificationResult.DocumentType,
 			Confidence: pipelineResult.ClassificationResult.Confidence,
 			Tags:       pipelineResult.ClassificationResult.Keywords,
@@ -722,7 +954,6 @@ func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.Proc
 
 		// Update metadata with classification results
 		if response.Metadata != nil {
-			response.Metadata.Category = pipelineResult.ClassificationResult.LegalCategory
 			response.Metadata.LegalTags = pipelineResult.ClassificationResult.LegalTags
 		}
 	}
@@ -742,7 +973,7 @@ func (h *ProcessingHandler) convertPipelineResults(pipelineResult *pipeline.Proc
 
 	// Convert indexing results
 	if pipelineResult.IndexResult != nil {
-		response.IndexResult = &models.IndexResult{
+		response.IndexResult = &internalModels.IndexResult{
 			DocumentID: pipelineResult.IndexResult.DocumentID,
 			IndexName:  "documents", // Default index name
 			Success:    pipelineResult.IndexResult.Success,

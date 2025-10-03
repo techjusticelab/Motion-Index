@@ -12,7 +12,7 @@ import (
 	"github.com/opensearch-project/opensearch-go/v2/opensearchapi"
 
 	"motion-index-fiber/pkg/search/client"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/search/query"
 )
 

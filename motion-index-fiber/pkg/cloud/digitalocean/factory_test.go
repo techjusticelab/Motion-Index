@@ -12,7 +12,7 @@ import (
 
 	"motion-index-fiber/pkg/cloud/digitalocean/config"
 	"motion-index-fiber/pkg/search"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/storage"
 )
 

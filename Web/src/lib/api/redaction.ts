@@ -1,4 +1,3 @@
-import axios from 'axios';
 import { API_URL, getAuthHeaders, handleApiError } from './config';
 import type { RedactionAnalysis, ApiResponse } from './types';
 
@@ -14,18 +13,25 @@ export async function analyzeRedactionsOnly(file: File, session?: any): Promise<
     formData.append("file", file);
     const authHeaders = await getAuthHeaders(session);
     
-    const response = await axios.post(`${API_URL}/api/v1/analyze-redactions`, formData, {
+    const response = await fetch(`${API_URL}/api/v1/analyze-redactions`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "multipart/form-data",
         ...authHeaders
+        // Don't set Content-Type for FormData - let browser set it with boundary
       },
+      body: formData
     });
-    const apiResponse: ApiResponse<{redaction_analysis?: RedactionAnalysis; message?: string}> = response.data;
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const apiResponse = await response.json();
     console.log("Redaction analysis response:", apiResponse);
-    if (apiResponse.success && apiResponse.data) {
+    if (apiResponse.status === 'success' && apiResponse.data) {
       return apiResponse.data;
     } else {
-      throw new Error(apiResponse.error?.message || 'Redaction analysis failed');
+      throw new Error('Redaction analysis failed - invalid response format');
     }
   } catch (error) {
     return handleApiError(error, 'analyze redactions');
@@ -46,21 +52,28 @@ export async function createRedactedDocument(
 }> {
   try {
     const authHeaders = await getAuthHeaders(session);
-    const response = await axios.post(`${API_URL}/api/v1/redact-document`, {
-      document_id: documentId,
-      apply_redactions: applyRedactions
-    }, {
+    const response = await fetch(`${API_URL}/api/v1/redact-document`, {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...authHeaders
       },
+      body: JSON.stringify({
+        document_id: documentId,
+        apply_redactions: applyRedactions
+      })
     });
-    const apiResponse: ApiResponse<{document_id: string; redacted_url?: string; message: string}> = response.data;
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const apiResponse = await response.json();
     console.log("Redaction response:", apiResponse);
-    if (apiResponse.success && apiResponse.data) {
+    if (apiResponse.status === 'success' && apiResponse.data) {
       return apiResponse.data;
     } else {
-      throw new Error(apiResponse.error?.message || 'Document redaction failed');
+      throw new Error('Document redaction failed - invalid response format');
     }
   } catch (error) {
     return handleApiError(error, 'create redacted document');
@@ -76,11 +89,16 @@ export async function getDocumentRedactionAnalysis(
 ): Promise<RedactionAnalysis | null> {
   try {
     const authHeaders = await getAuthHeaders(session);
-    const response = await axios.get(`${API_URL}/api/v1/documents/${documentId}/redactions`, {
+    const response = await fetch(`${API_URL}/api/v1/documents/${documentId}/redactions`, {
       headers: authHeaders
     });
-    const apiResponse: ApiResponse<{redaction_analysis?: RedactionAnalysis}> = response.data;
-    if (apiResponse.success && apiResponse.data) {
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const apiResponse = await response.json();
+    if (apiResponse.status === 'success' && apiResponse.data) {
       return apiResponse.data.redaction_analysis || null;
     } else {
       return null;

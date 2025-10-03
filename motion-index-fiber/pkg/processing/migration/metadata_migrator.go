@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"motion-index-fiber/pkg/processing/classifier"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // MetadataMigrator handles migration from legacy metadata to enhanced schema

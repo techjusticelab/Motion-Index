@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { scale, slide, fly } from 'svelte/transition';
 	import { elasticOut, cubicOut, backOut } from 'svelte/easing';
+	import type { Snippet } from 'svelte';
 	
 	interface Props {
 		user?: { email?: string; user_metadata?: any };
@@ -10,6 +11,7 @@
 		displayName?: string;
 		isInitialLoad?: boolean;
 		class?: string;
+		actions?: Snippet;
 	}
 
 	let {
@@ -19,7 +21,8 @@
 		isLoadingDetails = false,
 		displayName = '',
 		isInitialLoad = true,
-		class: className = ''
+		class: className = '',
+		actions
 	}: Props = $props();
 
 	// Get user display name
@@ -101,8 +104,10 @@
 	<div class="space-y-3" in:slide={{ duration: 500, delay: isInitialLoad ? 700 : 0 }}>
 		<h3 class="text-md font-semibold text-neutral-700">Account Actions</h3>
 		
-		<slot name="actions">
-			<!-- Default actions slot content -->
+		{#if actions}
+			{@render actions()}
+		{:else}
+			<!-- Default actions content -->
 			<button
 				class="flex w-full items-center justify-between rounded-lg border border-neutral-300 bg-white p-3 text-left text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
 				in:scale={{
@@ -143,6 +148,6 @@
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 				</svg>
 			</button>
-		</slot>
+		{/if}
 	</div>
 </div>

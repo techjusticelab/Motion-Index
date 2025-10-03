@@ -10,7 +10,7 @@ import (
 
 	"motion-index-fiber/internal/config"
 	"motion-index-fiber/pkg/cloud/digitalocean"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 func main() {

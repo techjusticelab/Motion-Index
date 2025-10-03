@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // SearchService defines the interface for document search operations
@@ -41,6 +41,9 @@ type AggregationService interface {
 
 	// GetMetadataFieldValues returns unique values for a metadata field
 	GetMetadataFieldValues(ctx context.Context, field string, prefix string, size int) ([]*models.FieldValue, error)
+
+	// GetMetadataFieldValuesWithFilters returns unique values for a metadata field with custom filters
+	GetMetadataFieldValuesWithFilters(ctx context.Context, req *models.MetadataFieldValuesRequest) ([]*models.FieldValue, error)
 
 	// GetDocumentStats returns overall document statistics
 	GetDocumentStats(ctx context.Context) (*models.DocumentStats, error)

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 func TestSearchHandler_SearchDocuments_Extended(t *testing.T) {
@@ -627,8 +627,8 @@ func TestSearchHandler_GetDocument_Extended(t *testing.T) {
 					Subject:    "Contract Dispute Motion",
 					CaseNumber: "CV-2023-001",
 					CaseName:   "Smith vs Jones",
-					Court:      "Superior Court",
-					Judge:      "Judge Johnson",
+					Court:      &models.CourtInfo{CourtName: "Superior Court"},
+					Judge:      &models.Judge{Name: "Judge Johnson"},
 					Author:     "Attorney Smith",
 					Status:     "Active",
 					LegalTags:  []string{"Contract Law", "Dispute Resolution"},

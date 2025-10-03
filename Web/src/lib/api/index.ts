@@ -22,8 +22,7 @@ export {
   getLegalTags,
   getMetadataFieldValues,
   getAllFieldOptions,
-  getDocumentStats,
-  getMetadataFields
+  getDocumentStats
 } from './search';
 
 // Documents API
@@ -31,6 +30,8 @@ export {
   categoriseDocument,
   updateDocumentMetadata,
   getDocumentUrl,
+  getDocumentUrlWithSearch,
+  searchFilesByName,
   downloadDocument,
   getDocument
 } from './documents';

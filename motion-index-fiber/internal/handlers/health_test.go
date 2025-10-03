@@ -11,9 +11,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"motion-index-fiber/internal/models"
+	internalModels "motion-index-fiber/internal/models"
 	"motion-index-fiber/pkg/search"
-	searchModels "motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 	"motion-index-fiber/pkg/storage"
 )
 
@@ -85,25 +85,25 @@ type MockSearchService struct {
 }
 
 // SearchService methods
-func (m *MockSearchService) SearchDocuments(ctx context.Context, req *searchModels.SearchRequest) (*searchModels.SearchResult, error) {
+func (m *MockSearchService) SearchDocuments(ctx context.Context, req *models.SearchRequest) (*models.SearchResult, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*searchModels.SearchResult), args.Error(1)
+	return args.Get(0).(*models.SearchResult), args.Error(1)
 }
 
-func (m *MockSearchService) IndexDocument(ctx context.Context, doc *searchModels.Document) (string, error) {
+func (m *MockSearchService) IndexDocument(ctx context.Context, doc *models.Document) (string, error) {
 	args := m.Called(ctx, doc)
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockSearchService) BulkIndexDocuments(ctx context.Context, docs []*searchModels.Document) (*searchModels.BulkResult, error) {
+func (m *MockSearchService) BulkIndexDocuments(ctx context.Context, docs []*models.Document) (*models.BulkResult, error) {
 	args := m.Called(ctx, docs)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*searchModels.BulkResult), args.Error(1)
+	return args.Get(0).(*models.BulkResult), args.Error(1)
 }
 
 func (m *MockSearchService) UpdateDocumentMetadata(ctx context.Context, docID string, metadata map[string]interface{}) error {
@@ -116,12 +116,12 @@ func (m *MockSearchService) DeleteDocument(ctx context.Context, docID string) er
 	return args.Error(0)
 }
 
-func (m *MockSearchService) GetDocument(ctx context.Context, docID string) (*searchModels.Document, error) {
+func (m *MockSearchService) GetDocument(ctx context.Context, docID string) (*models.Document, error) {
 	args := m.Called(ctx, docID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*searchModels.Document), args.Error(1)
+	return args.Get(0).(*models.Document), args.Error(1)
 }
 
 func (m *MockSearchService) DocumentExists(ctx context.Context, docID string) (bool, error) {
@@ -130,44 +130,44 @@ func (m *MockSearchService) DocumentExists(ctx context.Context, docID string) (b
 }
 
 // AggregationService methods
-func (m *MockSearchService) GetLegalTags(ctx context.Context) ([]*searchModels.TagCount, error) {
+func (m *MockSearchService) GetLegalTags(ctx context.Context) ([]*models.TagCount, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*searchModels.TagCount), args.Error(1)
+	return args.Get(0).([]*models.TagCount), args.Error(1)
 }
 
-func (m *MockSearchService) GetDocumentTypes(ctx context.Context) ([]*searchModels.TypeCount, error) {
+func (m *MockSearchService) GetDocumentTypes(ctx context.Context) ([]*models.TypeCount, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*searchModels.TypeCount), args.Error(1)
+	return args.Get(0).([]*models.TypeCount), args.Error(1)
 }
 
-func (m *MockSearchService) GetMetadataFieldValues(ctx context.Context, field string, prefix string, size int) ([]*searchModels.FieldValue, error) {
+func (m *MockSearchService) GetMetadataFieldValues(ctx context.Context, field string, prefix string, size int) ([]*models.FieldValue, error) {
 	args := m.Called(ctx, field, prefix, size)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*searchModels.FieldValue), args.Error(1)
+	return args.Get(0).([]*models.FieldValue), args.Error(1)
 }
 
-func (m *MockSearchService) GetDocumentStats(ctx context.Context) (*searchModels.DocumentStats, error) {
+func (m *MockSearchService) GetDocumentStats(ctx context.Context) (*models.DocumentStats, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*searchModels.DocumentStats), args.Error(1)
+	return args.Get(0).(*models.DocumentStats), args.Error(1)
 }
 
-func (m *MockSearchService) GetAllFieldOptions(ctx context.Context) (*searchModels.FieldOptions, error) {
+func (m *MockSearchService) GetAllFieldOptions(ctx context.Context) (*models.FieldOptions, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*searchModels.FieldOptions), args.Error(1)
+	return args.Get(0).(*models.FieldOptions), args.Error(1)
 }
 
 // HealthChecker methods

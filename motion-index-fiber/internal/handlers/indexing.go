@@ -12,10 +12,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
-	"motion-index-fiber/internal/models"
+	internalModels "motion-index-fiber/internal/models"
 	"motion-index-fiber/pkg/processing/classifier"
 	"motion-index-fiber/pkg/search"
-	searchModels "motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 // IndexingHandler handles direct document indexing operations
@@ -33,9 +33,9 @@ func NewIndexingHandler(search search.Service) *IndexingHandler {
 
 // IndexDocument handles POST /api/v1/index/document - Direct document indexing
 func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
-	var request models.IndexDocumentRequest
+	var request internalModels.IndexDocumentRequest
 	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"parse_error",
 			"Failed to parse request body",
 			map[string]interface{}{"error": err.Error()},
@@ -44,7 +44,7 @@ func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
 
 	// Validate required fields
 	if err := h.validateIndexRequest(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusBadRequest).JSON(internalModels.NewErrorResponse(
 			"validation_error",
 			err.Error(),
 			nil,
@@ -53,7 +53,7 @@ func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
 
 	// Check search service health
 	if !h.search.IsHealthy() {
-		return c.Status(fiber.StatusServiceUnavailable).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusServiceUnavailable).JSON(internalModels.NewErrorResponse(
 			"service_unavailable",
 			"Search service is not healthy",
 			nil,
@@ -67,7 +67,7 @@ func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
 	indexID, err := h.indexDocument(ctx, &request)
 	if err != nil {
 		log.Printf("[INDEXING] ❌ Failed to index document %s: %v", request.DocumentID, err)
-		return c.Status(fiber.StatusInternalServerError).JSON(models.NewErrorResponse(
+		return c.Status(fiber.StatusInternalServerError).JSON(internalModels.NewErrorResponse(
 			"indexing_failed",
 			fmt.Sprintf("Failed to index document: %v", err),
 			map[string]interface{}{
@@ -79,7 +79,7 @@ func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
 	log.Printf("[INDEXING] ✅ Successfully indexed document %s with ID: %s", request.DocumentID, indexID)
 
 	// Create response
-	response := &models.IndexDocumentResponse{
+	response := &internalModels.IndexDocumentResponse{
 		DocumentID: request.DocumentID,
 		IndexID:    indexID,
 		Success:    true,
@@ -87,11 +87,11 @@ func (h *IndexingHandler) IndexDocument(c *fiber.Ctx) error {
 		IndexedAt:  time.Now(),
 	}
 
-	return c.JSON(models.NewSuccessResponse(response, "Document indexed successfully"))
+	return c.JSON(internalModels.NewSuccessResponse(response, "Document indexed successfully"))
 }
 
 // validateIndexRequest validates the indexing request
-func (h *IndexingHandler) validateIndexRequest(req *models.IndexDocumentRequest) error {
+func (h *IndexingHandler) validateIndexRequest(req *internalModels.IndexDocumentRequest) error {
 	if req.DocumentID == "" {
 		return fmt.Errorf("document_id is required")
 	}
@@ -112,7 +112,7 @@ func (h *IndexingHandler) validateIndexRequest(req *models.IndexDocumentRequest)
 }
 
 // indexDocument performs the actual document indexing
-func (h *IndexingHandler) indexDocument(ctx context.Context, req *models.IndexDocumentRequest) (string, error) {
+func (h *IndexingHandler) indexDocument(ctx context.Context, req *internalModels.IndexDocumentRequest) (string, error) {
 	// Prepare document for indexing
 	now := time.Now()
 	
@@ -141,7 +141,7 @@ func (h *IndexingHandler) indexDocument(ctx context.Context, req *models.IndexDo
 	}
 
 	// Create search document
-	searchDoc := &searchModels.Document{
+	searchDoc := &models.Document{
 		ID:          req.DocumentID,
 		FileName:    fileName,
 		FilePath:    req.DocumentPath,
@@ -179,7 +179,7 @@ func (h *IndexingHandler) indexDocument(ctx context.Context, req *models.IndexDo
 }
 
 // validateDocumentForIndexing validates that a document has all required fields
-func (h *IndexingHandler) validateDocumentForIndexing(doc *searchModels.Document) error {
+func (h *IndexingHandler) validateDocumentForIndexing(doc *models.Document) error {
 	if doc.ID == "" {
 		return fmt.Errorf("document ID cannot be empty")
 	}
@@ -209,12 +209,12 @@ func (h *IndexingHandler) validateDocumentForIndexing(doc *searchModels.Document
 }
 
 // buildDocumentMetadata creates document metadata from classification results
-func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.ClassificationResult) *searchModels.DocumentMetadata {
-	metadata := &searchModels.DocumentMetadata{
+func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.ClassificationResult) *models.DocumentMetadata {
+	metadata := &models.DocumentMetadata{
 		DocumentName:  classResult.Subject,
 		Subject:       classResult.Subject,
 		Summary:       classResult.Summary,
-		DocumentType:  searchModels.DocumentType(classResult.DocumentType),
+		DocumentType:  models.DocumentType(classResult.DocumentType),
 		Status:        classResult.Status,
 		Language:      "en", // Default to English
 		ProcessedAt:   time.Now(),
@@ -225,7 +225,7 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert case information
 	if classResult.CaseInfo != nil {
-		metadata.Case = &searchModels.CaseInfo{
+		metadata.Case = &models.CaseInfo{
 			CaseNumber:   classResult.CaseInfo.CaseNumber,
 			CaseName:     classResult.CaseInfo.CaseName,
 			CaseType:     classResult.CaseInfo.CaseType,
@@ -237,7 +237,7 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert court information
 	if classResult.CourtInfo != nil {
-		metadata.Court = &searchModels.CourtInfo{
+		metadata.Court = &models.CourtInfo{
 			CourtID:      classResult.CourtInfo.CourtID,
 			CourtName:    classResult.CourtInfo.CourtName,
 			Jurisdiction: classResult.CourtInfo.Jurisdiction,
@@ -250,9 +250,9 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert parties
 	if len(classResult.Parties) > 0 {
-		metadata.Parties = make([]searchModels.Party, len(classResult.Parties))
+		metadata.Parties = make([]models.Party, len(classResult.Parties))
 		for i, party := range classResult.Parties {
-			metadata.Parties[i] = searchModels.Party{
+			metadata.Parties[i] = models.Party{
 				Name:      party.Name,
 				Role:      party.Role,
 				PartyType: party.PartyType,
@@ -262,9 +262,9 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert attorneys
 	if len(classResult.Attorneys) > 0 {
-		metadata.Attorneys = make([]searchModels.Attorney, len(classResult.Attorneys))
+		metadata.Attorneys = make([]models.Attorney, len(classResult.Attorneys))
 		for i, attorney := range classResult.Attorneys {
-			metadata.Attorneys[i] = searchModels.Attorney{
+			metadata.Attorneys[i] = models.Attorney{
 				Name:         attorney.Name,
 				BarNumber:    attorney.BarNumber,
 				Role:         attorney.Role,
@@ -275,7 +275,7 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert judge
 	if classResult.Judge != nil {
-		metadata.Judge = &searchModels.Judge{
+		metadata.Judge = &models.Judge{
 			Name:    classResult.Judge.Name,
 			Title:   classResult.Judge.Title,
 			JudgeID: classResult.Judge.JudgeID,
@@ -284,9 +284,9 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert charges
 	if len(classResult.Charges) > 0 {
-		metadata.Charges = make([]searchModels.Charge, len(classResult.Charges))
+		metadata.Charges = make([]models.Charge, len(classResult.Charges))
 		for i, charge := range classResult.Charges {
-			metadata.Charges[i] = searchModels.Charge{
+			metadata.Charges[i] = models.Charge{
 				Statute:     charge.Statute,
 				Description: charge.Description,
 				Grade:       charge.Grade,
@@ -298,9 +298,9 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 
 	// Convert authorities
 	if len(classResult.Authorities) > 0 {
-		metadata.Authorities = make([]searchModels.Authority, len(classResult.Authorities))
+		metadata.Authorities = make([]models.Authority, len(classResult.Authorities))
 		for i, authority := range classResult.Authorities {
-			metadata.Authorities[i] = searchModels.Authority{
+			metadata.Authorities[i] = models.Authority{
 				Citation:  authority.Citation,
 				CaseTitle: authority.CaseTitle,
 				Type:      authority.Type,

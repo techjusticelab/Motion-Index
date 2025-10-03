@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -99,6 +101,22 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 	// Initialize actual AWS S3 client for DigitalOcean Spaces
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	
+	// Use a custom HTTP client with reasonable timeouts for DigitalOcean Spaces
+	httpClient := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout: 10 * time.Second,
+			ResponseHeaderTimeout: 15 * time.Second,
+			IdleConnTimeout: 30 * time.Second,
+			MaxIdleConns: 10,
+			MaxIdleConnsPerHost: 10,
+		},
+	}
+	
 	awsConfig, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(client.config.Region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
@@ -111,7 +129,7 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 					HostnameImmutable: true,
 				}, nil
 			})),
-		config.WithHTTPClient(nil), // Use default HTTP client with timeouts
+		config.WithHTTPClient(httpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
@@ -120,8 +138,8 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 	// Create S3 client with DigitalOcean Spaces configuration
 	client.client = s3.NewFromConfig(awsConfig, func(o *s3.Options) {
 		o.UsePathStyle = client.config.ForcePathStyle
-		// Reduce retries to avoid rate limiting issues with DigitalOcean Spaces
-		o.RetryMaxAttempts = 1
+		// Disable retries entirely to avoid rate limiting issues with DigitalOcean Spaces
+		o.RetryMaxAttempts = 0
 		o.RetryMode = aws.RetryModeStandard
 		// Disable signature version 4a for better compatibility with DigitalOcean Spaces
 		o.DisableMultiRegionAccessPoints = true

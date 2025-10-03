@@ -26,7 +26,7 @@ export function useAuth(supabase: SupabaseClient) {
   const session = derived(authStore, $auth => $auth.session);
 
   // Initialize auth state
-  async function initialize() {
+  async function initialize(): Promise<void> {
     try {
       authStore.update(state => ({ ...state, loading: true, error: null }));
       
@@ -74,7 +74,7 @@ export function useAuth(supabase: SupabaseClient) {
     initialize,
 
     // Sign in with email and password
-    signIn: async (email: string, password: string) => {
+    signIn: async (email: string, password: string): Promise<{ success: boolean; error?: string; data?: any }> => {
       try {
         authStore.update(state => ({ ...state, loading: true, error: null }));
         
@@ -97,7 +97,7 @@ export function useAuth(supabase: SupabaseClient) {
     },
 
     // Sign up with email and password
-    signUp: async (email: string, password: string, options?: { data?: object }) => {
+    signUp: async (email: string, password: string, options?: { data?: object }): Promise<{ success: boolean; error?: string; data?: any }> => {
       try {
         authStore.update(state => ({ ...state, loading: true, error: null }));
         
@@ -121,7 +121,7 @@ export function useAuth(supabase: SupabaseClient) {
     },
 
     // Sign out
-    signOut: async () => {
+    signOut: async (): Promise<{ success: boolean; error?: string }> => {
       try {
         authStore.update(state => ({ ...state, loading: true, error: null }));
         
@@ -148,7 +148,7 @@ export function useAuth(supabase: SupabaseClient) {
     },
 
     // Reset password
-    resetPassword: async (email: string) => {
+    resetPassword: async (email: string): Promise<{ success: boolean; error?: string; data?: any }> => {
       try {
         const { data, error } = await supabase.auth.resetPasswordForEmail(email);
 
@@ -164,7 +164,7 @@ export function useAuth(supabase: SupabaseClient) {
     },
 
     // Update password
-    updatePassword: async (password: string) => {
+    updatePassword: async (password: string): Promise<{ success: boolean; error?: string; data?: any }> => {
       try {
         authStore.update(state => ({ ...state, loading: true, error: null }));
         

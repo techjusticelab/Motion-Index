@@ -20,7 +20,16 @@ export default ts.config(
 		languageOptions: {
 			globals: { ...globals.browser, ...globals.node }
 		},
-		rules: { "no-undef": 'off' }
+		rules: { 
+			"no-undef": 'off',
+			"no-unused-vars": "error",
+			"@typescript-eslint/no-unused-vars": "error",
+			"@typescript-eslint/no-explicit-any": "warn",
+			"@typescript-eslint/explicit-function-return-type": "warn",
+			"@typescript-eslint/no-non-null-assertion": "warn",
+			"prefer-const": "error",
+			"no-var": "error"
+		}
 	},
 	{
 		files: [

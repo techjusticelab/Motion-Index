@@ -13,7 +13,7 @@ import (
 
 	"motion-index-fiber/internal/config"
 	"motion-index-fiber/pkg/search/client"
-	"motion-index-fiber/pkg/search/models"
+	"motion-index-fiber/pkg/models"
 )
 
 func main() {
