@@ -18,14 +18,14 @@ import (
 
 // service implements the Service interface
 type service struct {
-	client  *client.Client
+	client  client.SearchClient
 	builder *query.Builder
 }
 
 // NewService creates a new search service
-func NewService(client *client.Client) Service {
+func NewService(searchClient client.SearchClient) Service {
 	return &service{
-		client:  client,
+		client:  searchClient,
 		builder: query.NewBuilder(),
 	}
 }

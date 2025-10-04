@@ -85,21 +85,30 @@ func (c *DocumentCoordinator) initializeServices() error {
 	c.storage = services.Storage
 	c.search = services.Search
 	
-	// Initialize extraction service with enhanced capabilities
-	c.extractor = extractor.NewExtractionService(&extractor.ServiceConfig{
-		Type:          extractor.ServiceTypeAuto,
-		EnableOCR:     true,
-		EnableDslipak: true,
-	})
+	// Initialize extraction service
+	c.extractor = extractor.NewService()
 	
 	// Initialize classification service
-	c.classifier = classifier.NewOpenAIClassifier(&classifier.OpenAIConfig{
-		APIKey: c.config.OpenAI.APIKey,
-		Model:  c.config.OpenAI.Model,
+	classifierInstance, err := classifier.NewService(&classifier.Config{
+		Provider: "openai",
+		APIKey:   c.config.OpenAI.APIKey,
+		Model:    c.config.OpenAI.Model,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize classifier: %w", err)
+	}
+	c.classifier = classifierInstance
 	
 	// Initialize GPU accelerator
-	c.gpu = gpu.NewNVIDIAAccelerator()
+	gpuInstance, err := gpu.NewNVIDIAAccelerator(&gpu.GPUConfig{
+		Enabled:       true,
+		FallbackToCPU: true,
+		BatchSize:     32,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize GPU accelerator: %w", err)
+	}
+	c.gpu = gpuInstance
 	
 	return nil
 }
@@ -169,7 +178,7 @@ func (c *DocumentCoordinator) initializeQueues() error {
 func (c *DocumentCoordinator) ClassifyAll(ctx context.Context) error {
 	log.Println("📋 Listing all documents from storage...")
 	
-	objects, err := c.storage.ListObjects(ctx, "")
+	objects, err := c.storage.List(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to list objects: %w", err)
 	}
@@ -183,7 +192,7 @@ func (c *DocumentCoordinator) ClassifyAll(ctx context.Context) error {
 func (c *DocumentCoordinator) ClassifyBatch(ctx context.Context, batchSize int) error {
 	log.Printf("📋 Listing documents for batch processing (limit: %d)...", batchSize)
 	
-	objects, err := c.storage.ListObjects(ctx, "")
+	objects, err := c.storage.List(ctx, "")
 	if err != nil {
 		return fmt.Errorf("failed to list objects: %w", err)
 	}
@@ -206,7 +215,6 @@ func (c *DocumentCoordinator) ClassifyFiles(ctx context.Context, files []string)
 	objects := make([]*storage.StorageObject, len(files))
 	for i, file := range files {
 		objects[i] = &storage.StorageObject{
-			Key:  file,
 			Path: file,
 		}
 	}
@@ -235,7 +243,7 @@ func (c *DocumentCoordinator) processDocuments(ctx context.Context, objects []*s
 		default:
 			// Queue document for processing
 			if err := c.queueDocument(ctx, obj); err != nil {
-				log.Printf("⚠️ Failed to queue document %s: %v", obj.Key, err)
+				log.Printf("⚠️ Failed to queue document %s: %v", obj.Path, err)
 				atomic.AddInt64(c.errors, 1)
 				continue
 			}
@@ -255,18 +263,29 @@ func (c *DocumentCoordinator) processDocuments(ctx context.Context, objects []*s
 func (c *DocumentCoordinator) queueDocument(ctx context.Context, obj *storage.StorageObject) error {
 	// Create processing job
 	job := &ProcessingJob{
-		DocumentKey: obj.Key,
+		DocumentKey: obj.Path,
 		DocumentPath: obj.Path,
 		Timestamp:   time.Now(),
 	}
 	
+	// Convert to queue item
+	queueItem := &queue.QueueItem{
+		ID:        fmt.Sprintf("doc-%d", time.Now().UnixNano()),
+		Type:      queue.QueueTypeExtraction,
+		Priority:  queue.PriorityNormal,
+		Data:      job,
+		Metadata:  map[string]interface{}{"document_path": obj.Path},
+		CreatedAt: time.Now(),
+		MaxRetries: 3,
+	}
+	
 	// Start with extraction
-	queue, err := c.queueManager.GetQueue("extraction")
+	extractionQueue, err := c.queueManager.GetQueue("extraction")
 	if err != nil {
 		return err
 	}
 	
-	return queue.Enqueue(ctx, job)
+	return extractionQueue.Enqueue(ctx, queueItem)
 }
 
 // waitForCompletion waits for all queues to finish processing
@@ -279,7 +298,18 @@ func (c *DocumentCoordinator) waitForCompletion(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if c.queueManager.IsEmpty() {
+			allEmpty := true
+			for _, queueName := range c.queueManager.ListQueues() {
+				queue, err := c.queueManager.GetQueue(queueName)
+				if err != nil {
+					continue
+				}
+				if !queue.IsEmpty() {
+					allEmpty = false
+					break
+				}
+			}
+			if allEmpty {
 				return nil
 			}
 		}
@@ -320,6 +350,57 @@ func (c *DocumentCoordinator) printSummary() {
 	fmt.Printf("❌ Errors: %d\n", errors)
 	fmt.Printf("⏭️ Skipped: %d\n", skipped)
 	fmt.Printf("📈 Total: %d\n", processed+errors+skipped)
+}
+
+// createExtractionProcessor creates the extraction processor function
+func (c *DocumentCoordinator) createExtractionProcessor() queue.ProcessorFunc {
+	return func(ctx context.Context, item *queue.QueueItem) *queue.ProcessingResult {
+		log.Printf("🔍 Processing extraction for item: %s", item.ID)
+		
+		// TODO: Implement actual extraction logic
+		result := &queue.ProcessingResult{
+			Success:  true,
+			Duration: time.Since(item.CreatedAt),
+			Output:   "extracted text placeholder",
+		}
+		
+		atomic.AddInt64(c.processed, 1)
+		return result
+	}
+}
+
+// createClassificationProcessor creates the classification processor function
+func (c *DocumentCoordinator) createClassificationProcessor() queue.ProcessorFunc {
+	return func(ctx context.Context, item *queue.QueueItem) *queue.ProcessingResult {
+		log.Printf("🏷️ Processing classification for item: %s", item.ID)
+		
+		// TODO: Implement actual classification logic
+		result := &queue.ProcessingResult{
+			Success:  true,
+			Duration: time.Since(item.CreatedAt),
+			Output:   "classification placeholder",
+		}
+		
+		atomic.AddInt64(c.processed, 1)
+		return result
+	}
+}
+
+// createIndexingProcessor creates the indexing processor function
+func (c *DocumentCoordinator) createIndexingProcessor() queue.ProcessorFunc {
+	return func(ctx context.Context, item *queue.QueueItem) *queue.ProcessingResult {
+		log.Printf("📚 Processing indexing for item: %s", item.ID)
+		
+		// TODO: Implement actual indexing logic
+		result := &queue.ProcessingResult{
+			Success:  true,
+			Duration: time.Since(item.CreatedAt),
+			Output:   "indexed successfully",
+		}
+		
+		atomic.AddInt64(c.processed, 1)
+		return result
+	}
 }
 
 // Close shuts down the coordinator and cleans up resources

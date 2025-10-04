@@ -423,7 +423,7 @@ func (mc *MetricsCollector) generateAlerts() []Alert {
 	}
 	
 	// Queue size alerts
-	for queueName, size := range mc.queueSizes {
+	for _, size := range mc.queueSizes {
 		if size > 1000 {
 			alerts = append(alerts, Alert{
 				Level:     AlertLevelWarning,

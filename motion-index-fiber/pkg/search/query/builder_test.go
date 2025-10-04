@@ -604,21 +604,28 @@ func TestBuildFromSearchRequest(t *testing.T) {
 			},
 			expected: map[string]interface{}{
 				"query": map[string]interface{}{
-					"multi_match": map[string]interface{}{
-						"query": "test",
-						"fields": []string{
-							"title^3",
-							"content^2",
-							"extracted_text",
-							"summary",
-							"case_name^2",
-							"parties",
-							"attorneys",
+					"bool": map[string]interface{}{
+						"must": []map[string]interface{}{
+							{
+								"multi_match": map[string]interface{}{
+									"query": "test",
+									"fields": []string{
+										"title^3",
+										"content^2",
+										"extracted_text",
+										"summary",
+										"case_name^2",
+										"parties",
+										"attorneys",
+									},
+									"type":     "best_fields",
+									"operator": "and",
+								},
+							},
 						},
-						"type":     "best_fields",
-						"operator": "and",
 					},
 				},
+				"size": 20,
 			},
 		},
 	}

@@ -7,6 +7,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
+		"start": "node build",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -14,7 +15,11 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"format": "prettier --write .",
-		"lint": "prettier --check . && eslint ."
+		"lint": "prettier --check . && eslint .",
+		"docker:build": "docker build -f Dockerfile.prod -t motion-index-web --build-arg PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL} --build-arg PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY} --build-arg PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:8003} .",
+		"docker:run": "docker run -p 5000:5000 --env-file .env motion-index-web",
+		"docker:dev": "docker-compose up web-dev",
+		"docker:prod": "docker-compose up web"
 	},
 	"dependencies": {
 		"@supabase/auth-helpers-sveltekit": "^0.13.0",
@@ -29,6 +34,7 @@
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
 		"@sveltejs/adapter-auto": "^6.0.0",
+		"@sveltejs/adapter-node": "^5.3.3",
 		"@sveltejs/kit": "^2.16.0",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
 		"@tailwindcss/forms": "^0.5.9",

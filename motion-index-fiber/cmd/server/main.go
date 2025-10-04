@@ -53,9 +53,9 @@ func main() {
 	// app.Use(helmet.New(helmet.Config{...}))
 	
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "*", // Allow all origins for now
+		AllowOrigins:     "https://motionindex.techjusticelab.org,http://localhost:5173",
 		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS,PATCH",
-		AllowHeaders:     "*", // Allow all headers
+		AllowHeaders:     "*",
 		AllowCredentials: true,
 		ExposeHeaders:    "Content-Length,Content-Type,X-Total-Count",
 	}))

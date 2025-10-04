@@ -643,6 +643,10 @@ func (m *MockSearchService) GetMetadataFieldValues(ctx context.Context, field st
 	return []*models.FieldValue{}, nil
 }
 
+func (m *MockSearchService) GetMetadataFieldValuesWithFilters(ctx context.Context, req *models.MetadataFieldValuesRequest) ([]*models.FieldValue, error) {
+	return []*models.FieldValue{}, nil
+}
+
 func (m *MockSearchService) GetDocumentStats(ctx context.Context) (*models.DocumentStats, error) {
 	return &models.DocumentStats{
 		TotalDocuments: 0,

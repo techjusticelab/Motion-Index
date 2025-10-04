@@ -12,6 +12,15 @@ RUN yarn install --frozen-lockfile
 # Copy source code
 COPY . .
 
+# Set build-time environment variables
+ARG PUBLIC_SUPABASE_URL
+ARG PUBLIC_SUPABASE_ANON_KEY
+ARG PUBLIC_API_URL
+
+ENV PUBLIC_SUPABASE_URL=$PUBLIC_SUPABASE_URL
+ENV PUBLIC_SUPABASE_ANON_KEY=$PUBLIC_SUPABASE_ANON_KEY
+ENV PUBLIC_API_URL=$PUBLIC_API_URL
+
 # Build application
 RUN yarn build
 
@@ -37,11 +46,11 @@ COPY --from=builder --chown=svelte:nodejs /app/node_modules ./node_modules
 USER svelte
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:3000 || exit 1
+    CMD curl -f http://localhost:5000 || exit 1
 
 # Start application with dumb-init
 ENTRYPOINT ["dumb-init", "--"]

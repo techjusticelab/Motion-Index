@@ -6,14 +6,12 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"motion-index-fiber/pkg/storage"
 )
@@ -117,11 +115,11 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 		},
 	}
 	
-	awsConfig, err := config.LoadDefaultConfig(ctx,
-		config.WithRegion(client.config.Region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+	awsConfig, err := awsconfig.LoadDefaultConfig(ctx,
+		awsconfig.WithRegion(client.config.Region),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
 			client.config.AccessKey, client.config.SecretKey, "")),
-		config.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
+		awsconfig.WithEndpointResolverWithOptions(aws.EndpointResolverWithOptionsFunc(
 			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 				return aws.Endpoint{
 					URL:               client.config.Endpoint,
@@ -129,7 +127,7 @@ func NewS3Client(config *S3Config) (S3Client, error) {
 					HostnameImmutable: true,
 				}, nil
 			})),
-		config.WithHTTPClient(httpClient),
+		awsconfig.WithHTTPClient(httpClient),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
