@@ -370,13 +370,35 @@ func (h *ProcessingHandler) ProcessDocument(c *fiber.Ctx) error {
 
 	file := files[0]
 
-	// Parse processing options
+	// Parse processing options from individual form fields or JSON string
 	var processOptions *internalModels.ProcessOptions
 	if optionsStr := c.FormValue("options"); optionsStr != "" {
-		// In a real implementation, you'd parse JSON from the options string
+		// TODO: Parse JSON from the options string in future
 		processOptions = internalModels.DefaultProcessOptions()
 	} else {
-		processOptions = internalModels.DefaultProcessOptions()
+		// Parse individual form fields (priority over defaults)
+		processOptions = &internalModels.ProcessOptions{
+			ExtractText:    c.FormValue("extract_text") != "false",    // Default true, set false only if explicitly "false"
+			ClassifyDoc:    c.FormValue("classify_doc") != "false",    // Default true, set false only if explicitly "false"
+			IndexDocument:  c.FormValue("index_document") != "false",  // Default true, set false only if explicitly "false"
+			StoreDocument:  c.FormValue("store_document") != "false",  // Default true, set false only if explicitly "false"
+			TimeoutSeconds: 120,
+			RetryCount:     1,
+		}
+		
+		// Override defaults if explicit values provided
+		if c.FormValue("extract_text") == "false" {
+			processOptions.ExtractText = false
+		}
+		if c.FormValue("classify_doc") == "false" {
+			processOptions.ClassifyDoc = false
+		}
+		if c.FormValue("index_document") == "false" {
+			processOptions.IndexDocument = false
+		}
+		if c.FormValue("store_document") == "false" {
+			processOptions.StoreDocument = false
+		}
 	}
 
 	// Validate and apply defaults

@@ -11,7 +11,7 @@ Motion-Index Fiber is a high-performance legal document processing API built wit
 - **Cloud Platform**: DigitalOcean (Spaces storage, Managed OpenSearch, App Platform)
 - **Integration Pattern**: Direct DigitalOcean REST API + AWS S3 SDK for Spaces
 - **Authentication**: JWT with Supabase integration
-- **AI Processing**: OpenAI GPT-4 for document classification
+- **AI Processing**: Multi-model support (OpenAI GPT-4, Claude, Ollama) with unified prompts and enhanced date extraction
 - **Testing**: Comprehensive TDD with testify framework
 
 ## Architecture
@@ -29,8 +29,8 @@ Motion-Index Fiber is a high-performance legal document processing API built wit
     └─────┬─────┘
           │
 ┌─────────┼─────────┐
-│    DigitalOcean   │    │   Supabase    │    │   OpenAI    │
-│ (REST API + S3)   │    │     (JWT)     │    │   (GPT-4)   │
+│    DigitalOcean   │    │   Supabase    │    │ AI Models   │
+│ (REST API + S3)   │    │     (JWT)     │    │GPT-4/Claude │
 └─────────┬─────────┘    └───────────────┘    └─────────────┘
           │
     ┌─────▼─────┐        ┌─────────────┐
@@ -41,8 +41,15 @@ Motion-Index Fiber is a high-performance legal document processing API built wit
 
 ### Package Structure
 - **`cmd/server/`**: Application entry point with graceful shutdown
+- **`cmd/api-classifier/`**: Single-threaded document classification tool
+- **`cmd/api-batch-classifier/`**: Multi-threaded batch classification tool
+- **`cmd/setup-index/`**: OpenSearch index setup and management
+- **`cmd/inspect-index/`**: Index inspection and debugging tools
 - **`pkg/cloud/digitalocean/`**: Direct DigitalOcean API integration and service factory
 - **`pkg/processing/`**: Document processing pipeline (extract, classify, process)
+  - **`classifier/`**: Multi-model AI classification (OpenAI, Claude, Ollama)
+  - **`pipeline/`**: Document processing pipeline and workers
+  - **`queue/`**: Priority queue and rate limiting for batch processing
 - **`pkg/search/`**: Search interfaces and OpenSearch client
 - **`pkg/storage/`**: Storage interfaces and utilities
 - **`internal/config/`**: Application configuration with validation
@@ -50,6 +57,84 @@ Motion-Index Fiber is a high-performance legal document processing API built wit
 - **`internal/middleware/`**: Custom middleware (auth, error handling)
 - **`internal/models/`**: Data models and validation
 - **`internal/testutil/`**: Test utilities following UNIX principles
+
+## Enhanced Date Extraction and Classification System
+
+### Multi-Model AI Classification
+The system supports three AI models with unified prompt architecture:
+
+#### Supported Models
+- **OpenAI GPT-4**: Production-grade classification with comprehensive analysis
+- **Claude 3.5 Sonnet**: Advanced legal reasoning and structured extraction
+- **Ollama (Local)**: Privacy-focused local model support (Llama3, etc.)
+
+#### Unified Prompt System (`pkg/processing/classifier/prompts.go`)
+- **Centralized Prompts**: Single source of truth for all classification prompts
+- **Model-Specific Optimization**: Tailored configurations for each AI model
+- **Enhanced Instructions**: Comprehensive date extraction and legal entity guidelines
+- **Consistent Results**: Same classification logic across all models
+
+### Enhanced Date Extraction
+
+#### Five Date Types Extracted
+1. **`filing_date`**: When document was filed with court
+2. **`event_date`**: Key event or action date referenced in document
+3. **`hearing_date`**: Scheduled court hearing or proceeding date
+4. **`decision_date`**: When court decision, ruling, or order was made
+5. **`served_date`**: When documents were served to parties
+
+#### Date Processing Features (`pkg/processing/classifier/date_extraction.go`)
+- **ISO Format Standardization**: All dates converted to YYYY-MM-DD
+- **Context-Aware Validation**: Legal document date range validation (1950-present)
+- **Multiple Format Support**: MM/DD/YYYY, Month DD YYYY, YYYY-MM-DD
+- **Error Handling**: Invalid dates safely handled and logged
+- **Relative Date Parsing**: "tomorrow", "next Monday" calculated from context
+
+#### Search Integration
+All extracted dates are indexed in OpenSearch as searchable fields:
+```json
+{
+  "metadata": {
+    "filing_date": "2024-03-15",
+    "event_date": "2024-03-10", 
+    "hearing_date": "2024-04-20",
+    "decision_date": "2024-03-25",
+    "served_date": "2024-03-12"
+  }
+}
+```
+
+### Classification Commands
+
+#### Single-Threaded Processing (Debugging)
+```bash
+# Test API connectivity
+go run cmd/api-classifier/main.go test-connection
+
+# Classify specific number of documents
+go run cmd/api-classifier/main.go classify-count 10
+
+# Classify all unindexed documents (sequential)
+go run cmd/api-classifier/main.go classify-all
+```
+
+#### Batch Processing (Production)
+```bash
+# Batch classification with workers
+go run cmd/api-batch-classifier/main.go classify-all --limit=100
+
+# Monitor classification jobs
+go run cmd/api-batch-classifier/main.go status
+```
+
+#### Index Management
+```bash
+# Setup OpenSearch index with proper mappings
+go run cmd/setup-index/main.go
+
+# Inspect index structure and sample documents
+go run cmd/inspect-index/main.go
+```
 
 ## Development Commands
 
@@ -161,9 +246,18 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_KEY=your-service-key
 
-# OpenAI Classification
+# AI Classification Services
+# OpenAI GPT-4 (Primary)
 OPENAI_API_KEY=your-api-key
 OPENAI_MODEL=gpt-4
+
+# Claude (Alternative)
+CLAUDE_API_KEY=your-claude-api-key
+CLAUDE_MODEL=claude-3-5-sonnet-20241022
+
+# Ollama (Local/Privacy)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3
 ```
 
 ## UNIX Philosophy Adherence
@@ -240,6 +334,89 @@ cfg.DigitalOcean = testutil.TestDigitalOceanConfig()
 // Temporary files and directories
 tmpDir, cleanup := testutil.TempDir(t)
 defer cleanup()
+```
+
+## Classification and Date Extraction Patterns
+
+### Unified Prompt Architecture
+```go
+// Use centralized prompt builder for all models
+config := DefaultPromptConfigs["openai"] // or "claude", "ollama"
+builder := NewPromptBuilder(config)
+prompt := builder.BuildClassificationPrompt(text, metadata)
+
+// Model-specific configurations
+type PromptConfig struct {
+    Model           string  // "gpt-4", "claude-3-sonnet", "llama3"
+    MaxTextLength   int     // Text truncation limit
+    IncludeContext  bool    // Include document context analysis
+    DetailLevel     string  // "minimal", "standard", "comprehensive"
+}
+```
+
+### Date Extraction Implementation
+```go
+// Initialize date extractor with validation
+dateExtractor := NewDateExtractor()
+
+// Extract and validate dates from classification result
+if result.FilingDate != nil {
+    if !dateExtractor.validateDate(*result.FilingDate, "filing_date") {
+        log.Printf("Invalid filing_date: %s, setting to nil", *result.FilingDate)
+        result.FilingDate = nil
+    }
+}
+
+// Parse dates in pipeline processing
+if filingDateStr, exists := req.Metadata["filing_date"]; exists {
+    if parsedDate, err := time.Parse("2006-01-02", filingDateStr); err == nil {
+        doc.Metadata.FilingDate = &parsedDate
+    }
+}
+```
+
+### Multi-Model Classification Pattern
+```go
+// Interface-based classifier design
+type Classifier interface {
+    Classify(ctx context.Context, text string, metadata *DocumentMetadata) (*ClassificationResult, error)
+    GetSupportedCategories() []string
+    IsConfigured() bool
+}
+
+// Create classifiers for different models
+openaiClassifier, _ := NewOpenAIClassifier(openaiConfig)
+claudeClassifier, _ := NewClaudeClassifier(claudeConfig)
+ollamaClassifier, _ := NewOllamaClassifier(ollamaConfig)
+
+// Use same interface for all models
+result, err := classifier.Classify(ctx, documentText, metadata)
+```
+
+### Enhanced Classification Result Structure
+```go
+type ClassificationResult struct {
+    // Core Classification
+    DocumentType  string  `json:"document_type"`
+    LegalCategory string  `json:"legal_category"`
+    Subject       string  `json:"subject"`
+    Summary       string  `json:"summary"`
+    Confidence    float64 `json:"confidence"`
+    
+    // Enhanced Date Fields (ISO format: YYYY-MM-DD)
+    FilingDate   *string `json:"filing_date,omitempty"`
+    EventDate    *string `json:"event_date,omitempty"`
+    HearingDate  *string `json:"hearing_date,omitempty"`
+    DecisionDate *string `json:"decision_date,omitempty"`
+    ServedDate   *string `json:"served_date,omitempty"`
+    
+    // Legal Entity Extraction
+    CaseInfo    *CaseInfo   `json:"case_info,omitempty"`
+    CourtInfo   *CourtInfo  `json:"court_info,omitempty"`
+    Parties     []Party     `json:"parties,omitempty"`
+    Attorneys   []Attorney  `json:"attorneys,omitempty"`
+    Authorities []Authority `json:"authorities,omitempty"`
+}
 ```
 
 ## API Development Patterns
@@ -425,4 +602,12 @@ go test ./... -bench=. -benchmem
 
 # Integration tests (requires credentials)
 RUN_INTEGRATION_TESTS=true go test ./... -v -tags=integration
+
+# Classification Commands
+go run cmd/api-classifier/main.go test-connection           # Test API connectivity
+go run cmd/api-classifier/main.go classify-count 10        # Classify 10 documents
+go run cmd/api-classifier/main.go classify-all             # Classify all documents
+go run cmd/api-batch-classifier/main.go classify-all --limit=100  # Batch classification
+go run cmd/setup-index/main.go                             # Setup OpenSearch index
+go run cmd/inspect-index/main.go                           # Inspect index structure
 ```

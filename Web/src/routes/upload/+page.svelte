@@ -1,5 +1,17 @@
 <script lang="ts">
-	import { categoriseDocument, updateDocumentMetadata, createRedactedDocument, analyzeRedactionsOnly, type Document } from '$lib/api';
+	import { 
+		categoriseDocument, 
+		updateDocumentMetadata, 
+		createRedactedDocument, 
+		analyzeRedactionsOnly, 
+		startBatchClassification,
+		getBatchJobStatus,
+		getBatchJobResults,
+		cancelBatchJob,
+		type Document,
+		type BatchJob,
+		type BatchProgress
+	} from '$lib/api';
 	import { RedactionAnalyzer } from '$lib/components/upload';
 	import { onMount } from 'svelte';
 	import { fade, fly, slide, scale } from 'svelte/transition';
@@ -42,6 +54,18 @@
 
 	// Timer to reset success/failure message
 	let successMessageTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Batch processing state
+	let selectedFiles = $state<File[]>([]);
+	let currentBatchJob = $state<BatchJob | null>(null);
+	let batchProgress = $state<BatchProgress | null>(null);
+	let isBatchProcessing = $state(false);
+	let batchResults = $state<any[]>([]);
+	let showBatchInterface = $state(false);
+	let batchLimit = $state(10);
+
+	// Batch monitoring timer
+	let batchMonitorTimer: ReturnType<typeof setInterval> | null = null;
 
 	// Function to handle tag input
 	function addTag() {
@@ -338,6 +362,114 @@
 			return 'generic';
 		}
 	}
+
+	// Batch processing functions
+	function handleMultipleFileSelect(event: Event) {
+		const target = event.target as HTMLInputElement;
+		if (target.files && target.files.length > 0) {
+			selectedFiles = Array.from(target.files);
+		}
+	}
+
+	async function startBatchProcessing() {
+		if (selectedFiles.length === 0) {
+			uploadStatus = 'Please select files for batch processing.';
+			return;
+		}
+
+		try {
+			isBatchProcessing = true;
+			uploadStatus = 'Starting batch classification...';
+
+			const batchRequest = {
+				limit: batchLimit,
+				filters: {},
+				ai_provider: 'openai' // or 'claude' or 'ollama'
+			};
+
+			const job = await startBatchClassification(batchRequest, session);
+			currentBatchJob = job;
+
+			// Start monitoring the job
+			startBatchMonitoring();
+
+			uploadStatus = `Batch job started with ID: ${job.id}`;
+		} catch (error) {
+			isBatchProcessing = false;
+			uploadStatus = 'Failed to start batch processing. Please try again.';
+			console.error('Batch processing error:', error);
+		}
+	}
+
+	function startBatchMonitoring() {
+		if (!currentBatchJob) return;
+
+		batchMonitorTimer = setInterval(async () => {
+			try {
+				const status = await getBatchJobStatus(currentBatchJob!.id, session);
+				batchProgress = status.progress;
+
+				if (status.status === 'completed' || status.status === 'failed') {
+					stopBatchMonitoring();
+					
+					if (status.status === 'completed') {
+						await loadBatchResults();
+						uploadStatus = `Batch processing completed! Processed ${batchProgress?.processed || 0} documents.`;
+					} else {
+						uploadStatus = 'Batch processing failed.';
+					}
+					
+					isBatchProcessing = false;
+				} else {
+					uploadStatus = `Processing... ${batchProgress?.processed || 0}/${batchProgress?.total || 0} documents`;
+				}
+			} catch (error) {
+				console.error('Error monitoring batch job:', error);
+				stopBatchMonitoring();
+				isBatchProcessing = false;
+			}
+		}, 2000); // Check every 2 seconds
+	}
+
+	function stopBatchMonitoring() {
+		if (batchMonitorTimer) {
+			clearInterval(batchMonitorTimer);
+			batchMonitorTimer = null;
+		}
+	}
+
+	async function loadBatchResults() {
+		if (!currentBatchJob) return;
+
+		try {
+			const results = await getBatchJobResults(currentBatchJob.id, session);
+			batchResults = results;
+		} catch (error) {
+			console.error('Error loading batch results:', error);
+		}
+	}
+
+	async function cancelCurrentBatchJob() {
+		if (!currentBatchJob) return;
+
+		try {
+			await cancelBatchJob(currentBatchJob.id, session);
+			stopBatchMonitoring();
+			currentBatchJob = null;
+			batchProgress = null;
+			isBatchProcessing = false;
+			uploadStatus = 'Batch job cancelled.';
+		} catch (error) {
+			console.error('Error cancelling batch job:', error);
+		}
+	}
+
+	// Cleanup on component unmount
+	onMount(() => {
+		return () => {
+			stopBatchMonitoring();
+		};
+	});
 </script>
 
 <div class="flex min-h-[80vh] items-center justify-center p-4">
@@ -690,46 +822,178 @@
 					</div>
 				</div>
 
-				<div class="mt-6 space-y-3" in:fly={{ y: 10, duration: 600, delay: 600, easing: cubicOut }}>
-					<!-- Regular upload button -->
-					<button
-						class="flex w-full items-center justify-center rounded-lg bg-primary-900 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-						onclick={handleFileUpload}
-						disabled={!selectedFile || isUploading}
-						in:scale={{ start: 0.95, duration: 600, delay: 650, easing: backOut }}
-					>
-						{#if isUploading}
-							<div class="flex items-center">
-								<!-- Custom spinner -->
-								<div
-									class="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-								></div>
-								<span>Processing...</span>
-							</div>
-						{:else}
-							Upload and Categorise
-						{/if}
-					</button>
-
-					<!-- Redaction test button -->
-					<button
-						class="flex w-full items-center justify-center rounded-lg bg-orange-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
-						onclick={handleRedactionOnlyTest}
-						disabled={!selectedFile || isUploading || !selectedFile?.name?.toLowerCase().endsWith('.pdf')}
-						in:scale={{ start: 0.95, duration: 600, delay: 700, easing: backOut }}
-					>
-						{#if isUploading}
-							<div class="flex items-center">
-								<div
-									class="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-								></div>
-								<span>Analyzing...</span>
-							</div>
-						{:else}
-							🔍 Test Redaction Analysis (PDF Only)
-						{/if}
-					</button>
+				<!-- Upload Mode Toggle -->
+				<div class="mt-6 mb-4 flex justify-center">
+					<div class="flex rounded-lg border border-neutral-200 p-1 bg-neutral-50">
+						<button
+							class="px-3 py-2 rounded-md text-sm font-medium transition-all {!showBatchInterface
+								? 'bg-white text-primary-900 shadow-sm'
+								: 'text-neutral-600 hover:text-neutral-800'}"
+							onclick={() => (showBatchInterface = false)}
+							in:fade={{ duration: 300 }}
+						>
+							Single Upload
+						</button>
+						<button
+							class="px-3 py-2 rounded-md text-sm font-medium transition-all {showBatchInterface
+								? 'bg-white text-primary-900 shadow-sm'
+								: 'text-neutral-600 hover:text-neutral-800'}"
+							onclick={() => (showBatchInterface = true)}
+							in:fade={{ duration: 300 }}
+						>
+							Batch Processing
+						</button>
+					</div>
 				</div>
+
+				{#if !showBatchInterface}
+					<!-- Single Upload Interface -->
+					<div class="mt-6 space-y-3" in:fly={{ y: 10, duration: 600, delay: 600, easing: cubicOut }}>
+						<!-- Regular upload button -->
+						<button
+							class="flex w-full items-center justify-center rounded-lg bg-primary-900 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+							onclick={handleFileUpload}
+							disabled={!selectedFile || isUploading}
+							in:scale={{ start: 0.95, duration: 600, delay: 650, easing: backOut }}
+						>
+							{#if isUploading}
+								<div class="flex items-center">
+									<!-- Custom spinner -->
+									<div
+										class="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+									></div>
+									<span>Processing...</span>
+								</div>
+							{:else}
+								Upload and Categorise
+							{/if}
+						</button>
+
+						<!-- Redaction test button -->
+						<button
+							class="flex w-full items-center justify-center rounded-lg bg-orange-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+							onclick={handleRedactionOnlyTest}
+							disabled={!selectedFile || isUploading || !selectedFile?.name?.toLowerCase().endsWith('.pdf')}
+							in:scale={{ start: 0.95, duration: 600, delay: 700, easing: backOut }}
+						>
+							{#if isUploading}
+								<div class="flex items-center">
+									<div
+										class="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+									></div>
+									<span>Analyzing...</span>
+								</div>
+							{:else}
+								🔍 Test Redaction Analysis (PDF Only)
+							{/if}
+						</button>
+					</div>
+				{:else}
+					<!-- Batch Processing Interface -->
+					<div class="mt-6 space-y-4" in:fly={{ y: 10, duration: 600, easing: cubicOut }}>
+						<!-- Batch Configuration -->
+						<div class="rounded-lg border border-neutral-200 p-4 bg-neutral-50">
+							<h3 class="text-sm font-medium text-neutral-700 mb-3">Batch Configuration</h3>
+							<div class="grid grid-cols-2 gap-4">
+								<div>
+									<label class="block text-xs text-neutral-600 mb-1">Processing Limit</label>
+									<input
+										type="number"
+										bind:value={batchLimit}
+										min="1"
+										max="1000"
+										class="w-full px-3 py-2 text-sm border border-neutral-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+									/>
+								</div>
+								<div>
+									<label class="block text-xs text-neutral-600 mb-1">Selected Files</label>
+									<input
+										type="file"
+										multiple
+										accept=".pdf,.docx,.txt"
+										onchange={handleMultipleFileSelect}
+										class="w-full text-sm border border-neutral-300 rounded-md p-2 focus:ring-primary-500 focus:border-primary-500"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<!-- Batch Processing Controls -->
+						{#if !isBatchProcessing && !currentBatchJob}
+							<button
+								class="flex w-full items-center justify-center rounded-lg bg-secondary-600 px-4 py-3 font-medium text-white shadow transition duration-200 hover:bg-secondary-700 disabled:cursor-not-allowed disabled:opacity-50"
+								onclick={startBatchProcessing}
+								disabled={selectedFiles.length === 0}
+								in:scale={{ start: 0.95, duration: 400, easing: backOut }}
+							>
+								<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+								</svg>
+								Start Batch Processing ({selectedFiles.length} files)
+							</button>
+						{/if}
+
+						<!-- Active Batch Job Monitor -->
+						{#if currentBatchJob && isBatchProcessing}
+							<div class="rounded-lg border border-blue-200 bg-blue-50 p-4" in:fly={{ y: -10, duration: 400 }}>
+								<div class="flex items-center justify-between mb-3">
+									<h4 class="font-medium text-blue-900">Batch Job: {currentBatchJob.id}</h4>
+									<button
+										class="text-sm text-red-600 hover:text-red-800 underline"
+										onclick={cancelCurrentBatchJob}
+									>
+										Cancel Job
+									</button>
+								</div>
+								
+								{#if batchProgress}
+									<div class="space-y-2">
+										<div class="flex justify-between text-sm">
+											<span class="text-blue-700">Progress: {batchProgress.processed}/{batchProgress.total}</span>
+											<span class="text-blue-700">{Math.round((batchProgress.processed / batchProgress.total) * 100)}%</span>
+										</div>
+										<div class="w-full bg-blue-200 rounded-full h-2">
+											<div 
+												class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+												style="width: {(batchProgress.processed / batchProgress.total) * 100}%"
+											></div>
+										</div>
+										{#if batchProgress.errors > 0}
+											<div class="text-sm text-red-600">
+												Errors: {batchProgress.errors}
+											</div>
+										{/if}
+									</div>
+								{:else}
+									<div class="flex items-center text-blue-700">
+										<div class="animate-spin mr-2 h-4 w-4 rounded-full border-2 border-blue-300 border-t-blue-600"></div>
+										Starting batch job...
+									</div>
+								{/if}
+							</div>
+						{/if}
+
+						<!-- Batch Results -->
+						{#if batchResults.length > 0}
+							<div class="rounded-lg border border-green-200 bg-green-50 p-4" in:fly={{ y: 10, duration: 400 }}>
+								<h4 class="font-medium text-green-900 mb-3">Batch Results ({batchResults.length} documents)</h4>
+								<div class="max-h-48 overflow-y-auto space-y-2">
+									{#each batchResults.slice(0, 10) as result}
+										<div class="flex items-center justify-between text-sm bg-white rounded p-2">
+											<span class="text-neutral-700 truncate">{result.filename || result.id}</span>
+											<span class="text-green-600 font-medium">✓ Processed</span>
+										</div>
+									{/each}
+									{#if batchResults.length > 10}
+										<div class="text-xs text-neutral-600 text-center pt-2">
+											... and {batchResults.length - 10} more documents
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				{#if uploadStatus && !isUploading}
 					<div

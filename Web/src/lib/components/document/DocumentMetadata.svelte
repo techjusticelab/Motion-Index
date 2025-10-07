@@ -322,15 +322,15 @@
 			</div>
 		{/if}
 
-		<!-- Content Analysis Section -->
-		{#if docData.metadata?.classification_confidence !== undefined || docData.metadata?.has_redactions !== undefined || docData.metadata?.redaction_score !== undefined || !isEmptyValue(docData.metadata?.extraction_method)}
+		<!-- Enhanced Content Analysis & Privacy Section -->
+		{#if docData.metadata?.classification_confidence !== undefined || docData.metadata?.has_redactions !== undefined || docData.metadata?.redaction_score !== undefined || !isEmptyValue(docData.metadata?.extraction_method) || docData.metadata?.sensitive_terms}
 		<div class="rounded-lg border border-neutral-200 bg-white">
 			<button
 				type="button"
 				onclick={() => toggleSection('content')}
 				class="flex w-full items-center justify-between p-3 text-left hover:bg-neutral-50"
 			>
-				<h4 class="text-sm font-medium text-neutral-800">Content Analysis</h4>
+				<h4 class="text-sm font-medium text-neutral-800">Content Analysis & Privacy</h4>
 				<svg
 					class="h-4 w-4 transform transition-transform {sectionsCollapsed.content ? '' : 'rotate-180'}"
 					fill="none"
@@ -341,10 +341,61 @@
 				</svg>
 			</button>
 			{#if !sectionsCollapsed.content}
-				<div class="space-y-3 border-t border-neutral-100 p-3" transition:slide={{ duration: 300 }}>
+				<div class="space-y-4 border-t border-neutral-100 p-3" transition:slide={{ duration: 300 }}>
+					<!-- Privacy & Security Status -->
+					{#if docData.metadata?.has_redactions !== undefined || docData.metadata?.sensitive_terms || docData.metadata?.redaction_score !== undefined}
+						<div class="rounded-lg bg-neutral-50 p-3">
+							<p class="text-xs font-medium text-neutral-700 mb-2">🔐 Privacy & Security Status</p>
+							
+							{#if docData.metadata?.has_redactions !== undefined}
+								<div class="mb-2">
+									<span class={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${docData.metadata?.has_redactions ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+										{docData.metadata?.has_redactions ? '🔒 Contains Redactions' : '✅ No Redactions'}
+									</span>
+								</div>
+							{/if}
+
+							{#if docData.metadata?.sensitive_terms && docData.metadata.sensitive_terms.length > 0}
+								<div class="mb-2">
+									<div class="text-xs text-neutral-600 mb-1">Sensitive Terms Detected:</div>
+									<div class="flex flex-wrap gap-1">
+										{#each docData.metadata.sensitive_terms.slice(0, 5) as term}
+											<span class="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+												⚠️ {term}
+											</span>
+										{/each}
+										{#if docData.metadata.sensitive_terms.length > 5}
+											<span class="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+												+{docData.metadata.sensitive_terms.length - 5} more
+											</span>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							{#if docData.metadata?.redaction_score !== undefined}
+								<div>
+									<div class="flex items-center justify-between text-xs text-neutral-600 mb-1">
+										<span>Privacy Score:</span>
+										<span class="font-medium">{formatPercentage(docData.metadata.redaction_score)}</span>
+									</div>
+									<div class="flex items-center space-x-2">
+										<div class="flex-1 bg-neutral-200 rounded-full h-2">
+											<div 
+												class={`h-2 rounded-full ${docData.metadata.redaction_score > 0.7 ? 'bg-red-500' : docData.metadata.redaction_score > 0.3 ? 'bg-yellow-500' : 'bg-green-500'}`}
+												style="width: {formatPercentage(docData.metadata.redaction_score).replace('%', '')}%"
+											></div>
+										</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
+
+					<!-- Classification Analysis -->
 					{#if docData.metadata?.classification_confidence !== undefined}
 						<div>
-							<p class="text-xs text-neutral-500">Classification Confidence</p>
+							<p class="text-xs text-neutral-500">AI Classification Confidence</p>
 							<div class="flex items-center space-x-2">
 								<div class="flex-1 bg-neutral-200 rounded-full h-2">
 									<div 
@@ -357,33 +408,9 @@
 						</div>
 					{/if}
 
-					{#if docData.metadata?.has_redactions !== undefined}
-						<div>
-							<p class="text-xs text-neutral-500">Has Redactions</p>
-							<span class={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${docData.metadata?.has_redactions ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-								{docData.metadata?.has_redactions ? 'Yes' : 'No'}
-							</span>
-						</div>
-					{/if}
-
-					{#if docData.metadata?.redaction_score !== undefined}
-						<div>
-							<p class="text-xs text-neutral-500">Redaction Score</p>
-							<div class="flex items-center space-x-2">
-								<div class="flex-1 bg-neutral-200 rounded-full h-2">
-									<div 
-										class="bg-red-600 h-2 rounded-full" 
-										style="width: {formatPercentage(docData.metadata.redaction_score).replace('%', '')}%"
-									></div>
-								</div>
-								<span class="text-sm font-medium text-neutral-800">{formatPercentage(docData.metadata.redaction_score)}</span>
-							</div>
-						</div>
-					{/if}
-
 					{#if !isEmptyValue(docData.metadata?.extraction_method)}
 						<div>
-							<p class="text-xs text-neutral-500">Extraction Method</p>
+							<p class="text-xs text-neutral-500">Text Extraction Method</p>
 							<span class="inline-flex rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-800">
 								{docData.metadata?.extraction_method}
 							</span>
@@ -479,18 +506,49 @@
 						</div>
 					{/if}
 
-					<!-- Date Information -->
+					<!-- Enhanced Legal Date Information -->
 					{#if !isEmptyValue(docData.metadata?.filing_date)}
 						<div>
 							<p class="text-xs text-neutral-500">Filing Date</p>
-							<p class="text-sm font-medium text-neutral-800">{formatDate(docData.metadata?.filing_date)}</p>
+							<span class="inline-flex items-center rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+								📅 {formatDate(docData.metadata?.filing_date)}
+							</span>
 						</div>
 					{/if}
 
 					{#if !isEmptyValue(docData.metadata?.event_date)}
 						<div>
 							<p class="text-xs text-neutral-500">Event Date</p>
-							<p class="text-sm font-medium text-neutral-800">{formatDate(docData.metadata?.event_date)}</p>
+							<span class="inline-flex items-center rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+								⚖️ {formatDate(docData.metadata?.event_date)}
+							</span>
+						</div>
+					{/if}
+
+					{#if !isEmptyValue(docData.metadata?.hearing_date)}
+						<div>
+							<p class="text-xs text-neutral-500">Hearing Date</p>
+							<span class="inline-flex items-center rounded bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+								🏛️ {formatDate(docData.metadata?.hearing_date)}
+							</span>
+						</div>
+					{/if}
+
+					{#if !isEmptyValue(docData.metadata?.decision_date)}
+						<div>
+							<p class="text-xs text-neutral-500">Decision Date</p>
+							<span class="inline-flex items-center rounded bg-orange-50 px-2 py-1 text-xs font-medium text-orange-700">
+								⚡ {formatDate(docData.metadata?.decision_date)}
+							</span>
+						</div>
+					{/if}
+
+					{#if !isEmptyValue(docData.metadata?.served_date)}
+						<div>
+							<p class="text-xs text-neutral-500">Served Date</p>
+							<span class="inline-flex items-center rounded bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+								📬 {formatDate(docData.metadata?.served_date)}
+							</span>
 						</div>
 					{/if}
 

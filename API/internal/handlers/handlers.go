@@ -159,7 +159,16 @@ func createClassificationService(cfg *config.Config) (classifier.Service, error)
 			RetryDelay:     cfg.AI.RetryDelay,
 		}
 
-		// Configure OpenAI (primary)
+		// Configure Ollama (primary - cost-effective local model)
+		if cfg.AI.Ollama.BaseURL != "" {
+			fallbackConfig.Ollama = &classifier.OllamaConfig{
+				BaseURL: cfg.AI.Ollama.BaseURL,
+				Model:   cfg.AI.Ollama.Model,
+				Timeout: cfg.AI.Ollama.Timeout,
+			}
+		}
+		
+		// Configure OpenAI (fallback only)
 		if cfg.AI.OpenAI.APIKey != "" {
 			fallbackConfig.OpenAI = &classifier.Config{
 				Provider:   "openai",
@@ -207,7 +216,24 @@ func createClassificationService(cfg *config.Config) (classifier.Service, error)
 		return &classifier.ServiceWrapper{Classifier: fallbackClassifier}, nil
 	}
 
-	// Fall back to single provider (backward compatibility)
+	// Fall back to single provider - prioritize Ollama for cost savings
+	if cfg.AI.Ollama.BaseURL != "" {
+		// Use Ollama as single provider (cost-effective local model)
+		ollamaConfig := &classifier.OllamaConfig{
+			BaseURL: cfg.AI.Ollama.BaseURL,
+			Model:   cfg.AI.Ollama.Model,
+			Timeout: cfg.AI.Ollama.Timeout,
+		}
+		
+		ollamaClassifier, err := classifier.NewOllamaClassifier(ollamaConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Ollama classifier: %w", err)
+		}
+		
+		return &classifier.ServiceWrapper{Classifier: ollamaClassifier}, nil
+	}
+	
+	// Fallback to OpenAI if Ollama not configured
 	var primaryAPIKey, primaryModel string
 	if cfg.AI.OpenAI.APIKey != "" {
 		primaryAPIKey = cfg.AI.OpenAI.APIKey
@@ -216,7 +242,7 @@ func createClassificationService(cfg *config.Config) (classifier.Service, error)
 		primaryAPIKey = cfg.OpenAI.APIKey
 		primaryModel = cfg.OpenAI.Model
 	} else {
-		return nil, fmt.Errorf("at least one AI provider API key is required")
+		return nil, fmt.Errorf("Ollama is not configured and no AI provider API key is available")
 	}
 
 	classifierConfig := &classifier.Config{

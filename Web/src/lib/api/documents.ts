@@ -25,7 +25,7 @@ export async function categoriseDocument(file: File, session?: any): Promise<any
 
     const apiResponse = await response.json();
     console.log("Categorise response:", apiResponse);
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data;
     } else {
       throw new Error('Document categorization failed - invalid response format');
@@ -63,7 +63,7 @@ export async function updateDocumentMetadata(
 
     const apiResponse = await response.json();
     console.log("Metadata update response:", apiResponse);
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data;
     } else {
       throw new Error('Metadata update failed - invalid response format');
@@ -153,7 +153,7 @@ export async function searchFilesByName(fileName: string, session?: any): Promis
     const apiResponse = await response.json();
     console.log('File search response:', apiResponse);
     
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       // Return array of file paths found
       return Array.isArray(apiResponse.data) ? apiResponse.data : [apiResponse.data];
     } else {
@@ -231,7 +231,7 @@ export async function getDocument(documentId: string, session?: any): Promise<Do
     }
 
     const apiResponse = await response.json();
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data;
     } else {
       throw new Error('Failed to get document - invalid response format');

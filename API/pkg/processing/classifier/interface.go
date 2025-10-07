@@ -62,8 +62,15 @@ type ClassificationResult struct {
 	Judge       *Judge      `json:"judge,omitempty"`
 	Charges     []Charge    `json:"charges,omitempty"`
 	Authorities []Authority `json:"authorities,omitempty"`
-	FilingDate  *string     `json:"filing_date,omitempty"` // ISO date string
-	EventDate   *string     `json:"event_date,omitempty"`  // ISO date string
+	
+	// Enhanced Date Fields - ISO date strings (YYYY-MM-DD)
+	FilingDate   *string     `json:"filing_date,omitempty"`   // When document was filed with court
+	EventDate    *string     `json:"event_date,omitempty"`    // Key event or action date
+	HearingDate  *string     `json:"hearing_date,omitempty"`  // Scheduled court hearing date
+	DecisionDate *string     `json:"decision_date,omitempty"` // When court decision was made
+	ServedDate   *string     `json:"served_date,omitempty"`   // When documents were served
+	DateRanges   []DateRange `json:"date_ranges,omitempty"`   // Multi-day events
+	
 	Status      string      `json:"status,omitempty"`
 
 	// Processing metadata
@@ -142,6 +149,7 @@ type Entity struct {
 	StartPos   int     `json:"start_pos,omitempty"`
 	EndPos     int     `json:"end_pos,omitempty"`
 }
+
 
 // Category represents a classification category with confidence
 type Category struct {

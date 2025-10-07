@@ -28,7 +28,7 @@ export async function analyzeRedactionsOnly(file: File, session?: any): Promise<
 
     const apiResponse = await response.json();
     console.log("Redaction analysis response:", apiResponse);
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data;
     } else {
       throw new Error('Redaction analysis failed - invalid response format');
@@ -70,7 +70,7 @@ export async function createRedactedDocument(
 
     const apiResponse = await response.json();
     console.log("Redaction response:", apiResponse);
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data;
     } else {
       throw new Error('Document redaction failed - invalid response format');
@@ -98,7 +98,7 @@ export async function getDocumentRedactionAnalysis(
     }
 
     const apiResponse = await response.json();
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    if (apiResponse.success === true && apiResponse.data) {
       return apiResponse.data.redaction_analysis || null;
     } else {
       return null;

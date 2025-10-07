@@ -12,7 +12,15 @@ export type {
   DocumentStats,
   RedactionAnalysis,
   ApiResponse,
-  LegacyApiResponse
+  LegacyApiResponse,
+  BatchJob,
+  BatchProgress,
+  BatchResult,
+  BatchClassifyRequest,
+  BatchDocumentInput,
+  ClassificationResult,
+  StorageDocument,
+  StorageStats
 } from './types';
 
 // Search API
@@ -42,6 +50,27 @@ export {
   createRedactedDocument,
   getDocumentRedactionAnalysis
 } from './redaction';
+
+// Batch Processing API
+export {
+  startBatchClassification,
+  getBatchJobStatus,
+  getBatchJobResults,
+  cancelBatchJob,
+  createBatchClassifyRequest,
+  pollBatchJob
+} from './batch';
+
+// Storage Management API
+export {
+  listStorageDocuments,
+  getStorageDocumentsCount,
+  getStorageStats,
+  searchStorageDocumentsByName,
+  getStorageDocumentUrl,
+  downloadStorageDocument,
+  checkStorageDocumentExists
+} from './storage';
 
 // Legacy re-exports for backward compatibility
 // These will be removed in a future version

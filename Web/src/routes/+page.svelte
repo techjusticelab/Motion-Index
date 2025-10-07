@@ -38,13 +38,15 @@
 			start: '',
 			end: ''
 		},
+		date_field_type: 'created_at', // Enhanced date field selection
 		legal_tags: [],
 		legal_tags_match_all: false, // Default to OR behavior (match any tag)
 		size: 10,
 		sort_by: 'created_at',
 		sort_order: 'desc',
 		page: 1,
-		use_fuzzy: false
+		use_fuzzy: false,
+		include_highlights: true // Enhanced search with highlights
 	});
 
 	let searchResults = $state<SearchResponse>({ total: 0, hits: [] });
@@ -54,6 +56,7 @@
 	let metadataFields = $state<MetadataField[]>([]);
 	let documentStats = $state<DocumentStats | null>(null);
 	let fieldOptions = $state<Record<string, string[]>>({});
+	let legalTags = $state<string[]>([]);
 	// UI state
 	let activeTab = $state('search'); // 'search' or 'results'
 
@@ -93,6 +96,14 @@
 				console.log('Field options:', fieldOptions);
 			} catch (err) {
 				console.warn('Could not fetch field options:', err);
+			}
+
+			// Fetch legal tags
+			try {
+				legalTags = await api.getLegalTags(session);
+				console.log('Legal tags:', legalTags);
+			} catch (err) {
+				console.warn('Could not fetch legal tags:', err);
 			}
 
 			// Initial search
@@ -178,13 +189,15 @@
 				start: documentStats?.date_range?.oldest || '',
 				end: documentStats?.date_range?.newest || ''
 			},
+			date_field_type: 'created_at',
 			legal_tags: [],
 			legal_tags_match_all: false, // Reset to OR behavior
 			size: 10,
 			sort_by: 'created_at',
 			sort_order: 'desc',
 			page: 1,
-			use_fuzzy: false
+			use_fuzzy: false,
+			include_highlights: true
 		};
 		performSearch();
 	}
@@ -200,16 +213,18 @@
 			</div>
 
 			{#if documentStats}
-				<div class="grid w-full grid-cols-2 gap-3 sm:grid-cols-2 md:w-auto">
+				<div class="grid w-full grid-cols-2 gap-3 sm:grid-cols-3 md:w-auto">
 					<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
 						<p class="text-xs text-primary-100">Documents</p>
-						<p class="text-xl font-semibold text-white">{documentStats.total_documents}</p>
+						<p class="text-xl font-semibold text-white">{documentStats.total_documents?.toLocaleString()}</p>
 					</div>
 
-					<!-- <div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
-						<p class="text-xs text-primary-100">Types</p>
-						<p class="text-xl font-semibold text-white">{Object.keys(documentTypes).length}</p>
-					</div> -->
+					{#if documentStats.total_size_gb}
+						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
+							<p class="text-xs text-primary-100">Storage</p>
+							<p class="text-xl font-semibold text-white">{documentStats.total_size_gb.toFixed(1)}GB</p>
+						</div>
+					{/if}
 
 					{#if documentStats.date_range}
 						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
@@ -219,6 +234,13 @@
 									documentStats.date_range.newest
 								)}
 							</p>
+						</div>
+					{/if}
+
+					{#if Object.keys(documentTypes).length > 0}
+						<div class="rounded-lg bg-white/10 p-3 text-center backdrop-blur-sm">
+							<p class="text-xs text-primary-100">Doc Types</p>
+							<p class="text-xl font-semibold text-white">{Object.keys(documentTypes).length}</p>
 						</div>
 					{/if}
 				</div>
@@ -284,6 +306,8 @@
 				{isLoading}
 				{documentTypes}
 				{fieldOptions}
+				{legalTags}
+				{documentStats}
 				on:search={handleSearch}
 				on:reset={resetFilters}
 			/>

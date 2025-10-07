@@ -211,6 +211,29 @@ func (p *pipeline) executeProcessingSteps(ctx context.Context, req *ProcessReque
 			if result.ClassificationResult.Summary != "" {
 				req.Metadata["summary"] = result.ClassificationResult.Summary
 			}
+			if result.ClassificationResult.Subject != "" {
+				req.Metadata["subject"] = result.ClassificationResult.Subject
+			}
+			if result.ClassificationResult.Status != "" {
+				req.Metadata["status"] = result.ClassificationResult.Status
+			}
+			
+			// Transfer all date fields to metadata (CRITICAL FIX)
+			if result.ClassificationResult.FilingDate != nil {
+				req.Metadata["filing_date"] = *result.ClassificationResult.FilingDate
+			}
+			if result.ClassificationResult.EventDate != nil {
+				req.Metadata["event_date"] = *result.ClassificationResult.EventDate
+			}
+			if result.ClassificationResult.HearingDate != nil {
+				req.Metadata["hearing_date"] = *result.ClassificationResult.HearingDate
+			}
+			if result.ClassificationResult.DecisionDate != nil {
+				req.Metadata["decision_date"] = *result.ClassificationResult.DecisionDate
+			}
+			if result.ClassificationResult.ServedDate != nil {
+				req.Metadata["served_date"] = *result.ClassificationResult.ServedDate
+			}
 		}
 	}
 
@@ -231,12 +254,62 @@ func (p *pipeline) executeProcessingSteps(ctx context.Context, req *ProcessReque
 
 	// Step 4: Document Indexing (uses all previous results)
 	if req.Options.IndexDocument {
-		if err := p.executeStep(ctx, ProcessorTypeIndexing, req, result); err != nil {
+		// Special handling for indexing processor to pass full ClassificationResult
+		if err := p.executeIndexingStep(ctx, req, result); err != nil {
 			return NewPipelineError("indexing_failed", "document indexing failed", ProcessorTypeIndexing, err)
 		}
 	}
 
 	return nil
+}
+
+// executeIndexingStep executes the indexing step with access to full ProcessResult
+func (p *pipeline) executeIndexingStep(ctx context.Context, req *ProcessRequest, result *ProcessResult) error {
+	stepStart := time.Now()
+
+	processor, exists := p.processors[ProcessorTypeIndexing]
+	if !exists {
+		return fmt.Errorf("indexing processor not found")
+	}
+
+	// Check if processor is healthy
+	if !processor.IsHealthy() {
+		return fmt.Errorf("indexing processor is not healthy")
+	}
+
+	// Create a specialized indexing processor that can handle full ProcessResult
+	if indexingProc, ok := processor.(*indexingProcessor); ok {
+		// Call specialized indexing method with full result
+		stepResult, err := indexingProc.ProcessWithFullResult(ctx, req, result)
+		if err != nil {
+			// Record failed step
+			step := &ProcessStep{
+				Type:      ProcessorTypeIndexing,
+				Success:   false,
+				Error:     err.Error(),
+				Duration:  time.Since(stepStart).Milliseconds(),
+				Timestamp: time.Now(),
+			}
+			result.Steps = append(result.Steps, step)
+			return err
+		}
+
+		// Record successful step
+		step := &ProcessStep{
+			Type:      ProcessorTypeIndexing,
+			Success:   true,
+			Duration:  time.Since(stepStart).Milliseconds(),
+			Timestamp: time.Now(),
+		}
+		result.Steps = append(result.Steps, step)
+
+		// Merge step results into main result
+		p.mergeStepResult(ProcessorTypeIndexing, stepResult, result)
+		return nil
+	}
+
+	// Fallback to regular processing if not the specialized indexing processor
+	return p.executeStep(ctx, ProcessorTypeIndexing, req, result)
 }
 
 // executeStep executes a single processing step

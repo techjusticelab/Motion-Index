@@ -30,8 +30,9 @@ func (e *textExtractor) Extract(ctx context.Context, reader io.Reader, metadata 
 		text = strings.ToValidUTF8(text, "�")
 	}
 
-	// Clean up the text
-	text = cleanText(text)
+	// Clean up the text using enhanced cleaner
+	cleaner := NewTextCleaner(DefaultCleaningConfig())
+	text = cleaner.CleanText(text)
 
 	// Count words and characters
 	wordCount := countWords(text)

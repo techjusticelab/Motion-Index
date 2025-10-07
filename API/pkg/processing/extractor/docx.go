@@ -37,8 +37,9 @@ func (e *docxExtractor) Extract(ctx context.Context, reader io.Reader, metadata 
 		return nil, NewExtractionError("docx", "failed to extract text from DOCX", err)
 	}
 
-	// Clean up the text
-	text = cleanText(text)
+	// Clean up the text using enhanced cleaner
+	cleaner := NewTextCleaner(DefaultCleaningConfig())
+	text = cleaner.CleanText(text)
 
 	// Count words and characters
 	wordCount := countWords(text)

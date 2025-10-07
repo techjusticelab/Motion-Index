@@ -290,16 +290,34 @@
 
 
 
-				<!-- Date Range -->
+				<!-- Enhanced Date Filters -->
 				<div in:fly={{ y: 10, duration: 500, delay: 300, easing: cubicOut }}>
-					<label class="mb-1 block text-xs font-medium text-neutral-700">Date Range</label>
+					<label class="mb-2 block text-xs font-medium text-neutral-700">Date Filters</label>
+					
+					<!-- Date Type Selector -->
+					<div class="mb-2">
+						<select
+							bind:value={searchParams.date_field_type || 'created_at'}
+							class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-xs shadow-sm focus:border-primary-900 focus:ring-primary-900"
+						>
+							<option value="created_at">Document Created</option>
+							<option value="filing_date">Filing Date</option>
+							<option value="event_date">Event Date</option>
+							<option value="hearing_date">Hearing Date</option>
+							<option value="decision_date">Decision Date</option>
+							<option value="served_date">Served Date</option>
+						</select>
+					</div>
+					
+					<!-- Date Range -->
 					<div class="grid grid-cols-2 gap-2">
 						<div>
 							<input
 								type="date"
 								id="date_start"
 								bind:value={searchParams.date_range.start}
-								class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
+								placeholder="From"
+								class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-xs shadow-sm focus:border-primary-900 focus:ring-primary-900"
 							/>
 						</div>
 						<div>
@@ -307,7 +325,8 @@
 								type="date"
 								id="date_end"
 								bind:value={searchParams.date_range.end}
-								class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
+								placeholder="To"
+								class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-xs shadow-sm focus:border-primary-900 focus:ring-primary-900"
 							/>
 						</div>
 					</div>
@@ -345,39 +364,68 @@
 		{/if}
 
 		<!-- Options -->
-		<div class="mb-5 grid grid-cols-2 gap-2">
-			<div in:fly={{ y: 10, duration: 500, delay: 500, easing: cubicOut }}>
-				<label for="sort_by" class="mb-1 block text-xs font-medium text-neutral-700">Sort By</label>
-				<select
-					bind:value={searchParams.sort_by}
-					class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
-				>
-					<option value="created_at">Date</option>
-					<option value="metadata.document_name">Name</option>
-					<option value="doc_type">Type</option>
-					<option value="metadata.case_number">Case #</option>
-				</select>
+		<div class="mb-5 space-y-3">
+			<div class="grid grid-cols-2 gap-2">
+				<div in:fly={{ y: 10, duration: 500, delay: 500, easing: cubicOut }}>
+					<label for="sort_by" class="mb-1 block text-xs font-medium text-neutral-700">Sort By</label>
+					<select
+						bind:value={searchParams.sort_by}
+						class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
+					>
+						<option value="created_at">Date Created</option>
+						<option value="metadata.document_name">Document Name</option>
+						<option value="doc_type">Document Type</option>
+						<option value="metadata.case.case_number">Case Number</option>
+						<option value="metadata.filing_date">Filing Date</option>
+						<option value="metadata.event_date">Event Date</option>
+						<option value="metadata.hearing_date">Hearing Date</option>
+						<option value="metadata.decision_date">Decision Date</option>
+					</select>
+				</div>
+
+				<div in:fly={{ y: 10, duration: 500, delay: 550, easing: cubicOut }}>
+					<label for="sort_order" class="mb-1 block text-xs font-medium text-neutral-700">Order</label>
+					<select
+						bind:value={searchParams.sort_order}
+						class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
+					>
+						<option value="desc">Newest first</option>
+						<option value="asc">Oldest first</option>
+					</select>
+				</div>
 			</div>
 
-			<div in:fly={{ y: 10, duration: 500, delay: 550, easing: cubicOut }}>
-				<label for="sort_order" class="mb-1 block text-xs font-medium text-neutral-700">Order</label>
-				<select
-					bind:value={searchParams.sort_order}
-					class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm shadow-sm focus:border-primary-900 focus:ring-primary-900"
-				>
-					<option value="desc">Newest first</option>
-					<option value="asc">Oldest first</option>
-				</select>
+			<!-- Search Options -->
+			<div in:fly={{ y: 10, duration: 500, delay: 600, easing: cubicOut }}>
+				<div class="flex items-center space-x-4">
+					<label class="flex items-center">
+						<input
+							type="checkbox"
+							bind:checked={searchParams.use_fuzzy}
+							class="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+						/>
+						<span class="ml-2 text-xs text-neutral-700">Fuzzy search (find similar terms)</span>
+					</label>
+					
+					<label class="flex items-center">
+						<input
+							type="checkbox"
+							bind:checked={searchParams.include_highlights}
+							class="rounded border-neutral-300 text-primary-600 focus:ring-primary-500"
+						/>
+						<span class="ml-2 text-xs text-neutral-700">Highlight matches</span>
+					</label>
+				</div>
 			</div>
 		</div>
 
 		<!-- Action Buttons -->
-		<div class="flex gap-2" in:fly={{ y: 10, duration: 500, delay: 600, easing: cubicOut }}>
+		<div class="flex gap-2" in:fly={{ y: 10, duration: 500, delay: 650, easing: cubicOut }}>
 			<button
 				type="submit"
 				class="flex flex-1 items-center justify-center rounded-lg bg-primary-900 px-4 py-2 text-sm font-medium text-white hover:bg-primary-800"
 				disabled={isLoading}
-				in:scale={{ start: 0.98, duration: 600, delay: 650, easing: cubicOut }}
+				in:scale={{ start: 0.98, duration: 600, delay: 700, easing: cubicOut }}
 			>
 				{#if isLoading}
 					<svg
@@ -405,7 +453,7 @@
 				onclick={resetFilters}
 				class="flex-1 rounded-lg bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
 				disabled={isLoading}
-				in:scale={{ start: 0.98, duration: 600, delay: 700, easing: cubicOut }}
+				in:scale={{ start: 0.98, duration: 600, delay: 750, easing: cubicOut }}
 			>
 				Reset
 			</button>

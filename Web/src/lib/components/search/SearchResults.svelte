@@ -273,19 +273,74 @@
 								</p>
 							{/if}
 
-							<!-- Document Metadata -->
-							<div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
-								{#if document.metadata?.pages}
-									<span>{document.metadata.pages} pages</span>
+							<!-- Enhanced Metadata with Security & Privacy Information -->
+							<div class="mt-3 space-y-2">
+								<!-- Document Metadata -->
+								<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500">
+									{#if document.metadata?.pages}
+										<span>{document.metadata.pages} pages</span>
+									{/if}
+									{#if document.metadata?.word_count}
+										<span>{document.metadata.word_count.toLocaleString()} words</span>
+									{/if}
+									{#if document.metadata?.author}
+										<span>Author: {document.metadata.author}</span>
+									{/if}
+									{#if document.metadata?.language && document.metadata.language !== 'en'}
+										<span>Language: {document.metadata.language.toUpperCase()}</span>
+									{/if}
+								</div>
+
+								<!-- Enhanced Date Fields -->
+								{#if document.metadata?.filing_date || document.metadata?.event_date || document.metadata?.hearing_date || document.metadata?.decision_date || document.metadata?.served_date}
+									<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+										{#if document.metadata.filing_date}
+											<span class="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-blue-700">
+												📅 Filed: {formatDate(document.metadata.filing_date)}
+											</span>
+										{/if}
+										{#if document.metadata.event_date}
+											<span class="inline-flex items-center rounded bg-green-50 px-2 py-0.5 text-green-700">
+												⚖️ Event: {formatDate(document.metadata.event_date)}
+											</span>
+										{/if}
+										{#if document.metadata.hearing_date}
+											<span class="inline-flex items-center rounded bg-purple-50 px-2 py-0.5 text-purple-700">
+												🏛️ Hearing: {formatDate(document.metadata.hearing_date)}
+											</span>
+										{/if}
+										{#if document.metadata.decision_date}
+											<span class="inline-flex items-center rounded bg-orange-50 px-2 py-0.5 text-orange-700">
+												⚡ Decision: {formatDate(document.metadata.decision_date)}
+											</span>
+										{/if}
+										{#if document.metadata.served_date}
+											<span class="inline-flex items-center rounded bg-indigo-50 px-2 py-0.5 text-indigo-700">
+												📬 Served: {formatDate(document.metadata.served_date)}
+											</span>
+										{/if}
+									</div>
 								{/if}
-								{#if document.metadata?.word_count}
-									<span>{document.metadata.word_count.toLocaleString()} words</span>
-								{/if}
-								{#if document.metadata?.author}
-									<span>Author: {document.metadata.author}</span>
-								{/if}
-								{#if document.metadata?.language && document.metadata.language !== 'en'}
-									<span>Language: {document.metadata.language.toUpperCase()}</span>
+
+								<!-- Privacy & Security Indicators -->
+								{#if document.metadata?.has_redactions || document.metadata?.sensitive_terms || document.metadata?.redaction_score}
+									<div class="flex flex-wrap gap-2 text-xs">
+										{#if document.metadata.has_redactions}
+											<span class="inline-flex items-center rounded bg-red-50 px-2 py-0.5 text-red-700 font-medium">
+												🔒 Contains Redactions
+											</span>
+										{/if}
+										{#if document.metadata.sensitive_terms && document.metadata.sensitive_terms.length > 0}
+											<span class="inline-flex items-center rounded bg-yellow-50 px-2 py-0.5 text-yellow-700 font-medium">
+												⚠️ {document.metadata.sensitive_terms.length} Sensitive Term{document.metadata.sensitive_terms.length !== 1 ? 's' : ''}
+											</span>
+										{/if}
+										{#if document.metadata.redaction_score && document.metadata.redaction_score > 0}
+											<span class="inline-flex items-center rounded bg-orange-50 px-2 py-0.5 text-orange-700 font-medium">
+												🛡️ Privacy Score: {Math.round(document.metadata.redaction_score * 100)}%
+											</span>
+										{/if}
+									</div>
 								{/if}
 							</div>
 

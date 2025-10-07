@@ -310,7 +310,7 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 		}
 	}
 
-	// Parse dates if available
+	// Parse dates if available (all 5 enhanced date fields)
 	if classResult.FilingDate != nil {
 		if filingTime, err := time.Parse("2006-01-02", *classResult.FilingDate); err == nil {
 			metadata.FilingDate = &filingTime
@@ -320,6 +320,24 @@ func (h *IndexingHandler) buildDocumentMetadata(classResult *classifier.Classifi
 	if classResult.EventDate != nil {
 		if eventTime, err := time.Parse("2006-01-02", *classResult.EventDate); err == nil {
 			metadata.EventDate = &eventTime
+		}
+	}
+
+	if classResult.HearingDate != nil {
+		if hearingTime, err := time.Parse("2006-01-02", *classResult.HearingDate); err == nil {
+			metadata.HearingDate = &hearingTime
+		}
+	}
+
+	if classResult.DecisionDate != nil {
+		if decisionTime, err := time.Parse("2006-01-02", *classResult.DecisionDate); err == nil {
+			metadata.DecisionDate = &decisionTime
+		}
+	}
+
+	if classResult.ServedDate != nil {
+		if servedTime, err := time.Parse("2006-01-02", *classResult.ServedDate); err == nil {
+			metadata.ServedDate = &servedTime
 		}
 	}
 

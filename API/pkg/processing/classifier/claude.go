@@ -76,93 +76,21 @@ func (c *claudeClassifier) IsConfigured() bool {
 	return c.apiKey != "" && c.model != ""
 }
 
-// buildClassificationPrompt creates a prompt for Claude classification
+// buildClassificationPrompt creates a prompt for Claude classification using unified prompts
 func (c *claudeClassifier) buildClassificationPrompt(text string, metadata *DocumentMetadata) string {
-	// Limit text length for Claude
-	maxTextLength := 8000
-	if len(text) > maxTextLength {
-		text = text[:maxTextLength] + "..."
+	// Use the unified prompt builder with Claude-specific configuration
+	config := DefaultPromptConfigs["claude"]
+	if config == nil {
+		config = &PromptConfig{
+			Model:         c.model,
+			MaxTextLength: 15000,
+			IncludeContext: true,
+			DetailLevel:   "comprehensive",
+		}
 	}
-
-	fileName := "unknown"
-	if metadata != nil && metadata.FileName != "" {
-		fileName = metadata.FileName
-	}
-
-	prompt := fmt.Sprintf(`You are an expert legal document analyzer specializing in California criminal law and civil litigation.
-
-Analyze the following legal document and provide comprehensive classification and extraction.
-
-Document metadata:
-- File name: %s
-
-CRITICAL INSTRUCTIONS:
-1. Classify document type from: %s
-2. Provide SUBSTANTIVE legal summary
-3. Extract ALL legal entities with high precision
-4. Identify case information, parties, and procedural context
-
-Document text:
-%s
-
-Respond with ONLY a JSON object in this exact format:
-{
-  "document_type": "<one of the available document types>",
-  "legal_category": "<primary legal area>",
-  "subject": "<concise 8-12 word subject line>",
-  "summary": "<comprehensive legal summary>",
-  "confidence": <float between 0 and 1>,
-  "keywords": ["<key legal terms and procedural elements>"],
-  "legal_tags": ["<relevant legal doctrine tags>"],
-  "case_info": {
-    "case_number": "<case number if found>",
-    "case_name": "<case title if found>",
-    "case_type": "<criminal|civil|traffic|family>",
-    "docket": "<full docket number>"
-  },
-  "court_info": {
-    "court_name": "<court name>",
-    "jurisdiction": "<federal|state|local>",
-    "level": "<trial|appellate|supreme>",
-    "county": "<county if applicable>"
-  },
-  "parties": [
-    {
-      "name": "<party name>",
-      "role": "<defendant|plaintiff|appellant|respondent>",
-      "party_type": "<individual|corporation|government>"
-    }
-  ],
-  "attorneys": [
-    {
-      "name": "<attorney name>",
-      "role": "<defense|prosecution|counsel>",
-      "organization": "<law firm or agency>"
-    }
-  ],
-  "judge": {
-    "name": "<judge name>",
-    "title": "<title if specified>"
-  },
-  "filing_date": "<YYYY-MM-DD format or null>",
-  "event_date": "<YYYY-MM-DD format or null>",
-  "status": "<filed|granted|denied|pending|served>",
-  "entities": [
-    {
-      "text": "<entity text>",
-      "type": "<PERSON|ORGANIZATION|LOCATION|DATE|MONEY|LEGAL_CITATION|CASE_NUMBER|STATUTE>",
-      "confidence": <float between 0 and 1>
-    }
-  ]
-}
-
-Use null for any field that cannot be determined from the document text.`,
-		fileName,
-		strings.Join(GetDefaultDocumentTypes(), ", "),
-		text,
-	)
-
-	return prompt
+	
+	builder := NewPromptBuilder(config)
+	return builder.BuildClassificationPrompt(text, metadata)
 }
 
 // Claude API request/response structures
@@ -281,6 +209,41 @@ func (c *claudeClassifier) parseClassificationResponse(response string) (*Classi
 	}
 	if result.Confidence == 0 {
 		result.Confidence = 0.5 // Default confidence
+	}
+	
+	// Validate and parse dates using date extractor
+	dateExtractor := NewDateExtractor()
+	
+	// Validate each date field if present
+	if result.FilingDate != nil {
+		if !dateExtractor.validateDate(*result.FilingDate, "filing_date") {
+			log.Printf("[CLAUDE] Invalid filing_date: %s, setting to nil", *result.FilingDate)
+			result.FilingDate = nil
+		}
+	}
+	if result.EventDate != nil {
+		if !dateExtractor.validateDate(*result.EventDate, "event_date") {
+			log.Printf("[CLAUDE] Invalid event_date: %s, setting to nil", *result.EventDate)
+			result.EventDate = nil
+		}
+	}
+	if result.HearingDate != nil {
+		if !dateExtractor.validateDate(*result.HearingDate, "hearing_date") {
+			log.Printf("[CLAUDE] Invalid hearing_date: %s, setting to nil", *result.HearingDate)
+			result.HearingDate = nil
+		}
+	}
+	if result.DecisionDate != nil {
+		if !dateExtractor.validateDate(*result.DecisionDate, "decision_date") {
+			log.Printf("[CLAUDE] Invalid decision_date: %s, setting to nil", *result.DecisionDate)
+			result.DecisionDate = nil
+		}
+	}
+	if result.ServedDate != nil {
+		if !dateExtractor.validateDate(*result.ServedDate, "served_date") {
+			log.Printf("[CLAUDE] Invalid served_date: %s, setting to nil", *result.ServedDate)
+			result.ServedDate = nil
+		}
 	}
 
 	// Validate document type against known types

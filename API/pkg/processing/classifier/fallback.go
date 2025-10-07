@@ -71,22 +71,22 @@ func NewFallbackClassifier(config *FallbackConfig) (Classifier, error) {
 	return fc, nil
 }
 
-// Classify attempts to classify using fallback strategy: OpenAI → Claude → Ollama
+// Classify attempts to classify using fallback strategy: Ollama → Claude → OpenAI (cost-effective order)
 func (fc *fallbackClassifier) Classify(ctx context.Context, text string, metadata *DocumentMetadata) (*ClassificationResult, error) {
 	var lastErr error
 	
-	// Try OpenAI first (primary provider)
-	if fc.openai != nil {
-		log.Printf("[FALLBACK] 🔄 Attempting classification with OpenAI")
-		result, err := fc.openai.Classify(ctx, text, metadata)
+	// Try Ollama first (cost-effective local model)
+	if fc.ollama != nil {
+		log.Printf("[FALLBACK] 🔄 Attempting classification with Ollama (cost-effective local model)")
+		result, err := fc.ollama.Classify(ctx, text, metadata)
 		if err == nil {
-			log.Printf("[FALLBACK] ✅ OpenAI classification successful")
+			log.Printf("[FALLBACK] ✅ Ollama classification successful")
 			return result, nil
 		}
 		
 		lastErr = err
 		errorType := fc.categorizeError(err)
-		log.Printf("[FALLBACK] ❌ OpenAI classification failed: %s - %v", errorType, err)
+		log.Printf("[FALLBACK] ❌ Ollama classification failed: %s - %v", errorType, err)
 		
 		// If not enabled for fallback, return the error
 		if !fc.enableFallback {
@@ -103,9 +103,9 @@ func (fc *fallbackClassifier) Classify(ctx context.Context, text string, metadat
 		time.Sleep(fc.retryDelay)
 	}
 
-	// Try Claude as first fallback
+	// Try Claude as second fallback
 	if fc.claude != nil {
-		log.Printf("[FALLBACK] 🔄 Attempting classification with Claude (fallback)")
+		log.Printf("[FALLBACK] 🔄 Attempting classification with Claude (second fallback)")
 		result, err := fc.claude.Classify(ctx, text, metadata)
 		if err == nil {
 			log.Printf("[FALLBACK] ✅ Claude classification successful")
@@ -120,21 +120,21 @@ func (fc *fallbackClassifier) Classify(ctx context.Context, text string, metadat
 		time.Sleep(fc.retryDelay)
 	}
 
-	// Try Ollama as final fallback
-	if fc.ollama != nil {
-		log.Printf("[FALLBACK] 🔄 Attempting classification with Ollama (local fallback)")
-		result, err := fc.ollama.Classify(ctx, text, metadata)
+	// Try OpenAI as expensive final fallback
+	if fc.openai != nil {
+		log.Printf("[FALLBACK] 🔄 Attempting classification with OpenAI (expensive final fallback)")
+		result, err := fc.openai.Classify(ctx, text, metadata)
 		if err == nil {
-			log.Printf("[FALLBACK] ✅ Ollama classification successful")
-			// Mark as local fallback in the result
-			result.Summary = "[LOCAL MODEL] " + result.Summary
-			result.Confidence = result.Confidence * 0.8 // Reduce confidence for local model
+			log.Printf("[FALLBACK] ✅ OpenAI classification successful")
+			// Mark as expensive fallback in the result
+			result.Summary = "[EXPENSIVE FALLBACK] " + result.Summary
+			result.Confidence = result.Confidence * 0.9 // Slight confidence reduction for expensive fallback
 			return result, nil
 		}
 		
 		lastErr = err
 		errorType := fc.categorizeError(err)
-		log.Printf("[FALLBACK] ❌ Ollama classification failed: %s - %v", errorType, err)
+		log.Printf("[FALLBACK] ❌ OpenAI classification failed: %s - %v", errorType, err)
 	}
 
 	// All providers failed

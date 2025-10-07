@@ -160,7 +160,7 @@ export class CaseManager {
       console.log('Checking for existing document...');
       const { data: existingDoc, error: checkError } = await this.supabase
         .from('case_documents')
-        .select('id')
+        .select('*')
         .eq('case_id', caseId)
         .eq('document_ids', documentId)
         .single();
@@ -171,7 +171,7 @@ export class CaseManager {
 
       if (existingDoc) {
         console.log('Document already exists in this case:', existingDoc);
-        return existingDoc;
+        return existingDoc as CaseDocument;
       }
 
       console.log('Inserting new case document...');

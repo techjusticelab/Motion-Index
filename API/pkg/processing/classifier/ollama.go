@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -74,57 +75,21 @@ func (o *ollamaClassifier) IsConfigured() bool {
 	return o.baseURL != "" && o.model != ""
 }
 
-// buildClassificationPrompt creates a prompt for Ollama classification
+// buildClassificationPrompt creates a prompt for Ollama classification using unified prompts
 func (o *ollamaClassifier) buildClassificationPrompt(text string, metadata *DocumentMetadata) string {
-	// Limit text length for Ollama (smaller context window)
-	maxTextLength := 4000
-	if len(text) > maxTextLength {
-		text = text[:maxTextLength] + "..."
+	// Use the unified prompt builder with Ollama-specific configuration
+	config := DefaultPromptConfigs["ollama"]
+	if config == nil {
+		config = &PromptConfig{
+			Model:         o.model,
+			MaxTextLength: 8000,
+			IncludeContext: false,
+			DetailLevel:   "standard",
+		}
 	}
-
-	fileName := "unknown"
-	if metadata != nil && metadata.FileName != "" {
-		fileName = metadata.FileName
-	}
-
-	prompt := fmt.Sprintf(`You are an expert legal document analyzer. Analyze this legal document and classify it.
-
-Document: %s
-
-Text:
-%s
-
-Available document types: %s
-
-Respond with ONLY a JSON object:
-{
-  "document_type": "<type from available types>",
-  "legal_category": "<criminal|civil|traffic|family>",
-  "subject": "<brief subject line>",
-  "summary": "<legal summary in 2-3 sentences>",
-  "confidence": <0.0 to 1.0>,
-  "keywords": ["<key legal terms>"],
-  "legal_tags": ["<legal categories>"],
-  "case_info": {
-    "case_number": "<case number or null>",
-    "case_name": "<case title or null>",
-    "case_type": "<criminal|civil|traffic|family>"
-  },
-  "filing_date": "<YYYY-MM-DD or null>",
-  "entities": [
-    {
-      "text": "<entity>",
-      "type": "<PERSON|ORGANIZATION|LOCATION|DATE|STATUTE>",
-      "confidence": <0.0 to 1.0>
-    }
-  ]
-}`,
-		fileName,
-		text,
-		strings.Join(GetDefaultDocumentTypes(), ", "),
-	)
-
-	return prompt
+	
+	builder := NewPromptBuilder(config)
+	return builder.BuildClassificationPrompt(text, metadata)
 }
 
 // Ollama API request/response structures
@@ -217,6 +182,41 @@ func (o *ollamaClassifier) parseClassificationResponse(response string) (*Classi
 	}
 	if result.Confidence == 0 {
 		result.Confidence = 0.3 // Lower default confidence for local model
+	}
+	
+	// Validate and parse dates using date extractor
+	dateExtractor := NewDateExtractor()
+	
+	// Validate each date field if present
+	if result.FilingDate != nil {
+		if !dateExtractor.validateDate(*result.FilingDate, "filing_date") {
+			log.Printf("[OLLAMA] Invalid filing_date: %s, setting to nil", *result.FilingDate)
+			result.FilingDate = nil
+		}
+	}
+	if result.EventDate != nil {
+		if !dateExtractor.validateDate(*result.EventDate, "event_date") {
+			log.Printf("[OLLAMA] Invalid event_date: %s, setting to nil", *result.EventDate)
+			result.EventDate = nil
+		}
+	}
+	if result.HearingDate != nil {
+		if !dateExtractor.validateDate(*result.HearingDate, "hearing_date") {
+			log.Printf("[OLLAMA] Invalid hearing_date: %s, setting to nil", *result.HearingDate)
+			result.HearingDate = nil
+		}
+	}
+	if result.DecisionDate != nil {
+		if !dateExtractor.validateDate(*result.DecisionDate, "decision_date") {
+			log.Printf("[OLLAMA] Invalid decision_date: %s, setting to nil", *result.DecisionDate)
+			result.DecisionDate = nil
+		}
+	}
+	if result.ServedDate != nil {
+		if !dateExtractor.validateDate(*result.ServedDate, "served_date") {
+			log.Printf("[OLLAMA] Invalid served_date: %s, setting to nil", *result.ServedDate)
+			result.ServedDate = nil
+		}
 	}
 
 	// Validate document type against known types

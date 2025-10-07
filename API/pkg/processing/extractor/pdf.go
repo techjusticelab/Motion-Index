@@ -384,8 +384,27 @@ func (e *pdfExtractor) extractAllText(reader *pdf.Reader) (string, int, error) {
 	return finalText, pageCount, nil
 }
 
-// cleanText performs comprehensive text cleaning
+// cleanText performs comprehensive text cleaning using the enhanced TextCleaner
 func (e *pdfExtractor) cleanText(text string) string {
+	// Create text cleaner with default configuration
+	cleaner := NewTextCleaner(DefaultCleaningConfig())
+	
+	// Apply enhanced cleaning
+	log.Printf("[PDF-EXTRACT] 🧹 Before enhanced cleaning: %d chars", len(text))
+	text = cleaner.CleanText(text)
+	log.Printf("[PDF-EXTRACT] 🧹 After enhanced cleaning: %d chars", len(text))
+
+	// Apply existing PDF-specific artifact removal (kept for compatibility)
+	text = e.removePDFArtifacts(text)
+
+	// Final text normalization
+	text = e.finalTextNormalization(text)
+
+	return text
+}
+
+// finalTextNormalization performs basic text normalization
+func (e *pdfExtractor) finalTextNormalization(text string) string {
 	// Replace multiple whitespaces with single space
 	re := regexp.MustCompile(`\s+`)
 	text = re.ReplaceAllString(text, " ")
@@ -399,11 +418,6 @@ func (e *pdfExtractor) cleanText(text string) string {
 	}
 
 	text = cleaned.String()
-
-	// Clean up common PDF artifacts
-	log.Printf("[PDF-EXTRACT] 🧹 Before removing PDF artifacts: %d chars", len(text))
-	text = e.removePDFArtifacts(text)
-	log.Printf("[PDF-EXTRACT] 🧹 After removing PDF artifacts: %d chars", len(text))
 
 	// Normalize line breaks
 	text = strings.ReplaceAll(text, "\r\n", "\n")
@@ -470,13 +484,33 @@ func (e *pdfExtractor) removePDFArtifacts(text string) string {
 			artifactReason = "short non-alphanumeric"
 		}
 
+		// Check for repeated character patterns (dots, dashes, etc.)
+		if !isArtifact && e.isRepeatedCharacterLine(line) {
+			isArtifact = true
+			artifactReason = "repeated character pattern"
+		}
+
+		// Check for form field lines with dots
+		if !isArtifact && e.isFormFieldLine(line) {
+			isArtifact = true
+			artifactReason = "form field line"
+		}
+
+		// Check for header/footer patterns
+		if !isArtifact && e.isHeaderFooterLine(line) {
+			isArtifact = true
+			artifactReason = "header/footer pattern"
+		}
+
 		if isArtifact {
 			removedCount++
 			if removedCount <= 10 { // Log first 10 removals
 				log.Printf("[PDF-ARTIFACTS] Removing line %d (%s): %q", i+1, artifactReason, line[:min(50, len(line))])
 			}
 		} else {
-			cleanedLines = append(cleanedLines, line)
+			// Clean table of contents artifacts but keep the line
+			cleanedLine := e.cleanTableOfContentsArtifacts(line)
+			cleanedLines = append(cleanedLines, cleanedLine)
 		}
 	}
 
@@ -508,6 +542,175 @@ func (e *pdfExtractor) hasAlphanumeric(s string) bool {
 		}
 	}
 	return false
+}
+
+// isRepeatedCharacterLine detects lines that are mostly repeated characters (dots, dashes, underscores)
+func (e *pdfExtractor) isRepeatedCharacterLine(line string) bool {
+	if len(line) < 5 {
+		return false
+	}
+	
+	// Common repeated characters used in forms and layouts
+	repeatedChars := map[rune]int{
+		'.': 0, '-': 0, '_': 0, '=': 0, '*': 0, '+': 0, '~': 0,
+	}
+	
+	totalChars := 0
+	repeatedCount := 0
+	
+	for _, r := range line {
+		if r == ' ' || r == '\t' { // Skip whitespace
+			continue
+		}
+		totalChars++
+		if _, exists := repeatedChars[r]; exists {
+			repeatedChars[r]++
+			repeatedCount++
+		}
+	}
+	
+	// If more than 70% of non-whitespace characters are repeated chars
+	if totalChars > 0 && float64(repeatedCount)/float64(totalChars) > 0.7 {
+		return true
+	}
+	
+	// Special case: check for patterns like ".-.-.-" or "_._._.
+	for char := range repeatedChars {
+		pattern := string(char)
+		// Count occurrences of the character
+		charCount := strings.Count(line, pattern)
+		if charCount >= 5 && len(line) > 10 {
+			// Remove all whitespace and check density
+			noSpace := strings.ReplaceAll(line, " ", "")
+			noSpace = strings.ReplaceAll(noSpace, "\t", "")
+			if float64(charCount)/float64(len(noSpace)) > 0.5 {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// isFormFieldLine detects form field placeholder lines with mixed dots and text
+func (e *pdfExtractor) isFormFieldLine(line string) bool {
+	if len(line) < 10 {
+		return false
+	}
+	
+	// Count dots and letters
+	dotCount := strings.Count(line, ".")
+	letterCount := 0
+	for _, r := range line {
+		if unicode.IsLetter(r) {
+			letterCount++
+		}
+	}
+	
+	// Form fields typically have format like "Name: ........................."
+	// or "Address .............................. Phone ................"
+	if dotCount >= 5 && letterCount > 0 && letterCount < 20 {
+		// Check for typical form patterns
+		formPatterns := []string{
+			"name", "address", "date", "phone", "signature", "title",
+			"city", "state", "zip", "email", "age", "sex", "occupation",
+		}
+		
+		lineLower := strings.ToLower(line)
+		for _, pattern := range formPatterns {
+			if strings.Contains(lineLower, pattern) && dotCount > letterCount {
+				return true
+			}
+		}
+		
+		// Generic check: if line has colon followed by lots of dots
+		if strings.Contains(line, ":") && dotCount > 10 {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// isHeaderFooterLine detects common header/footer patterns
+func (e *pdfExtractor) isHeaderFooterLine(line string) bool {
+	if len(line) == 0 {
+		return false
+	}
+	
+	lineLower := strings.ToLower(strings.TrimSpace(line))
+	
+	// Common header/footer patterns
+	headerFooterPatterns := []string{
+		"page ", "of ", "continued", "confidential", "draft",
+		"proprietary", "exhibit ", "attachment ", "schedule ",
+		"case no", "docket", "filed", "clerk", "court",
+	}
+	
+	// Check for simple page numbering
+	if regexp.MustCompile(`^page\s+\d+`).MatchString(lineLower) {
+		return true
+	}
+	if regexp.MustCompile(`^\d+\s+of\s+\d+$`).MatchString(lineLower) {
+		return true
+	}
+	if regexp.MustCompile(`^-\s*\d+\s*-$`).MatchString(line) {
+		return true
+	}
+	
+	// Check for date stamps (MM/DD/YYYY or Month DD, YYYY format)
+	if regexp.MustCompile(`\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}`).MatchString(line) && len(line) < 30 {
+		return true
+	}
+	
+	// Check for document ID patterns
+	if regexp.MustCompile(`^[A-Z0-9\-]{8,}$`).MatchString(strings.ReplaceAll(line, " ", "")) {
+		return true
+	}
+	
+	// Check for patterns in short lines
+	if len(line) < 50 {
+		for _, pattern := range headerFooterPatterns {
+			if strings.Contains(lineLower, pattern) {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// cleanTableOfContentsArtifacts removes TOC dots while preserving meaningful content
+func (e *pdfExtractor) cleanTableOfContentsArtifacts(line string) string {
+	// Pattern for TOC lines: "Chapter Title ................... Page 42"
+	// Keep the title and page number, remove the dots
+	
+	// Check if line has pattern: text + dots + number
+	if strings.Count(line, ".") < 5 {
+		return line
+	}
+	
+	// Use regex to find: (text)(dots)(optional spaces)(number)
+	tocPattern := regexp.MustCompile(`^(.+?)(\.{5,})(\s*)(\d+)?\s*$`)
+	matches := tocPattern.FindStringSubmatch(line)
+	
+	if len(matches) >= 3 {
+		title := strings.TrimSpace(matches[1])
+		pageNum := ""
+		if len(matches) >= 5 && matches[4] != "" {
+			pageNum = matches[4]
+		}
+		
+		// Only keep if title has substantial content
+		if len(title) > 3 && e.hasAlphanumeric(title) {
+			if pageNum != "" {
+				return fmt.Sprintf("%s (page %s)", title, pageNum)
+			}
+			return title
+		}
+	}
+	
+	return line
 }
 
 // extractPDFVersion extracts the PDF version from the file header

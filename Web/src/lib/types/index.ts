@@ -8,7 +8,15 @@ export type {
   MetadataField,
   DocumentStats,
   RedactionAnalysis,
-  ApiResponse
+  ApiResponse,
+  BatchJob,
+  BatchProgress,
+  BatchResult,
+  BatchClassifyRequest,
+  BatchDocumentInput,
+  ClassificationResult,
+  StorageDocument,
+  StorageStats
 } from '../api/types';
 
 // Re-export search types (for backward compatibility)

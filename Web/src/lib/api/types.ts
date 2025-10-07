@@ -94,10 +94,13 @@ export interface DocumentMetadata {
   attorneys?: Attorney[];
   judge?: Judge;
   
-  // Dates & Status
-  filing_date?: string;
-  event_date?: string;
-  timestamp?: string;
+  // Enhanced Date Fields for Legal Documents
+  filing_date?: string;   // When document was filed with court
+  event_date?: string;    // Key event or action date
+  hearing_date?: string;  // Scheduled court hearing date
+  decision_date?: string; // When court decision was made
+  served_date?: string;   // When documents were served
+  timestamp?: string;     // Legacy field
   status?: string;
   
   // Document Properties
@@ -114,6 +117,14 @@ export interface DocumentMetadata {
   processed_at: string;
   confidence?: number;
   ai_classified: boolean;
+  classification_confidence?: number;
+  
+  // Document Analysis
+  sensitive_terms?: string[];
+  has_redactions?: boolean;
+  redaction_score?: number;
+  extraction_method?: string;
+  file_type?: string;
   
   // Legacy fields for backward compatibility
   case_name?: string;
@@ -359,4 +370,93 @@ export interface LegacyApiResponse<T = any> {
   data?: T;
   error?: string;
   message?: string;
+}
+
+// Batch Processing Types
+export interface BatchJob {
+  id: string;
+  type: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  progress: BatchProgress;
+  results?: BatchResult[];
+  error?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  options: Record<string, any>;
+}
+
+export interface BatchProgress {
+  total_documents: number;
+  processed_count: number;
+  success_count: number;
+  error_count: number;
+  skipped_count: number;
+  indexed_count: number;
+  index_error_count: number;
+  percent_complete: number;
+  estimated_duration?: string;
+}
+
+export interface BatchResult {
+  document_id: string;
+  document_path: string;
+  status: 'success' | 'error' | 'skipped';
+  classification_result?: ClassificationResult;
+  error?: string;
+  indexed: boolean;
+  index_error?: string;
+  index_id?: string;
+  processed_at: string;
+}
+
+export interface ClassificationResult {
+  document_type: string;
+  legal_category?: string;
+  subject?: string;
+  summary?: string;
+  confidence: number;
+  success: boolean;
+  error?: string;
+  // Enhanced date extraction fields
+  filing_date?: string;
+  event_date?: string;
+  hearing_date?: string;
+  decision_date?: string;
+  served_date?: string;
+  // Additional metadata
+  legal_tags?: string[];
+  case_number?: string;
+  case_name?: string;
+  court?: string;
+  judge?: string;
+  parties?: Party[];
+  attorneys?: Attorney[];
+}
+
+export interface BatchClassifyRequest {
+  documents: BatchDocumentInput[];
+  options?: Record<string, any>;
+}
+
+export interface BatchDocumentInput {
+  document_id: string;
+  document_path?: string;
+  text?: string;
+}
+
+// Storage Management Types
+export interface StorageDocument {
+  path: string;
+  name: string;
+  size: number;
+  modified: string;
+  url?: string;
+}
+
+export interface StorageStats {
+  total_documents: number;
+  total_size: number;
+  storage_backend: string;
+  last_updated: string;
 }

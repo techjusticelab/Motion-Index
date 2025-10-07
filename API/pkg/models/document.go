@@ -18,7 +18,7 @@ type Document struct {
 	Metadata    *DocumentMetadata `json:"metadata"`
 	Size        int64             `json:"size,omitempty"`
 	ContentType string            `json:"content_type,omitempty"`
-	
+
 	// For backward compatibility with tests
 	Title   string `json:"title,omitempty"`
 	Content string `json:"content,omitempty"`
@@ -29,45 +29,48 @@ type DocumentMetadata struct {
 	// Basic Information
 	DocumentName string       `json:"document_name"`
 	Subject      string       `json:"subject"`
-	Summary      string       `json:"summary,omitempty"`          // Enhanced legal summary
+	Summary      string       `json:"summary,omitempty"` // Enhanced legal summary
 	DocumentType DocumentType `json:"document_type"`
-	
+
 	// Case Information
-	Case         *CaseInfo    `json:"case,omitempty"`
-	
+	Case *CaseInfo `json:"case,omitempty"`
+
 	// Court Information
-	Court        *CourtInfo   `json:"court,omitempty"`
-	
+	Court *CourtInfo `json:"court,omitempty"`
+
 	// People & Parties
-	Parties      []Party      `json:"parties,omitempty"`
-	Attorneys    []Attorney   `json:"attorneys,omitempty"`
-	Judge        *Judge       `json:"judge,omitempty"`
-	
-	// Dates & Status
-	FilingDate   *time.Time   `json:"filing_date,omitempty"`
-	EventDate    *time.Time   `json:"event_date,omitempty"`
-	Timestamp    *time.Time   `json:"timestamp,omitempty"`        // For backward compatibility
-	Status       string       `json:"status,omitempty"`
-	
+	Parties   []Party    `json:"parties,omitempty"`
+	Attorneys []Attorney `json:"attorneys,omitempty"`
+	Judge     *Judge     `json:"judge,omitempty"`
+
+	// Dates & Status - Enhanced date fields for legal documents
+	FilingDate   *time.Time `json:"filing_date,omitempty"`   // When document was filed with court
+	EventDate    *time.Time `json:"event_date,omitempty"`    // Key event or action date
+	HearingDate  *time.Time `json:"hearing_date,omitempty"`  // Scheduled court hearing date
+	DecisionDate *time.Time `json:"decision_date,omitempty"` // When court decision was made
+	ServedDate   *time.Time `json:"served_date,omitempty"`   // When documents were served
+	Timestamp    *time.Time `json:"timestamp,omitempty"`     // For backward compatibility
+	Status       string     `json:"status,omitempty"`
+
 	// Document Properties
-	Language     string       `json:"language,omitempty"`
-	Pages        int          `json:"pages,omitempty"`
-	WordCount    int          `json:"word_count,omitempty"`
-	
+	Language  string `json:"language,omitempty"`
+	Pages     int    `json:"pages,omitempty"`
+	WordCount int    `json:"word_count,omitempty"`
+
 	// Legal Classification
-	LegalTags    []string     `json:"legal_tags,omitempty"`
-	Charges      []Charge     `json:"charges,omitempty"`
-	Authorities  []Authority  `json:"authorities,omitempty"`
-	
+	LegalTags   []string    `json:"legal_tags,omitempty"`
+	Charges     []Charge    `json:"charges,omitempty"`
+	Authorities []Authority `json:"authorities,omitempty"`
+
 	// Processing Metadata
-	ProcessedAt  time.Time    `json:"processed_at"`
-	Confidence   float64      `json:"confidence,omitempty"`
-	AIClassified bool         `json:"ai_classified"`
-	
+	ProcessedAt  time.Time `json:"processed_at"`
+	Confidence   float64   `json:"confidence,omitempty"`
+	AIClassified bool      `json:"ai_classified"`
+
 	// Legacy fields for backward compatibility
-	CaseName     string       `json:"case_name,omitempty"`
-	CaseNumber   string       `json:"case_number,omitempty"`
-	Author       string       `json:"author,omitempty"`
+	CaseName   string `json:"case_name,omitempty"`
+	CaseNumber string `json:"case_number,omitempty"`
+	Author     string `json:"author,omitempty"`
 }
 
 // GetCaseName returns the case name from either the Case struct or legacy field
@@ -316,7 +319,13 @@ func getMetadataMapping() map[string]interface{} {
 			"event_date": map[string]interface{}{
 				"type": "date",
 			},
-			"timestamp": map[string]interface{}{
+			"hearing_date": map[string]interface{}{
+				"type": "date",
+			},
+			"decision_date": map[string]interface{}{
+				"type": "date",
+			},
+			"served_date": map[string]interface{}{
 				"type": "date",
 			},
 			"processed_at": map[string]interface{}{
@@ -328,12 +337,12 @@ func getMetadataMapping() map[string]interface{} {
 			"ai_classified": map[string]interface{}{
 				"type": "boolean",
 			},
-			"case": getCaseMapping(),
-			"court": getCourtMapping(),
-			"parties": getPartiesMapping(),
-			"attorneys": getAttorneysMapping(),
-			"judge": getJudgeMapping(),
-			"charges": getChargesMapping(),
+			"case":        getCaseMapping(),
+			"court":       getCourtMapping(),
+			"parties":     getPartiesMapping(),
+			"attorneys":   getAttorneysMapping(),
+			"judge":       getJudgeMapping(),
+			"charges":     getChargesMapping(),
 			"authorities": getAuthoritiesMapping(),
 			"legal_tags": map[string]interface{}{
 				"type": "keyword",

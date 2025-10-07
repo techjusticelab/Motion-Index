@@ -131,8 +131,8 @@ export async function searchDocuments(params: SearchParams, session?: any): Prom
     const apiResponse = await response.json();
     console.log('Raw search response:', apiResponse);
     
-    // Handle the actual API response format: {data: {...}, status: "success"}
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    // Handle the actual API response format: {success: true, data: {...}}
+    if (apiResponse.success === true && apiResponse.data) {
       const searchResult = apiResponse.data;
       
       // Transform to frontend format
@@ -251,8 +251,8 @@ export async function getMetadataFieldValues(
     const apiResponse = await response.json();
     console.log('Raw metadata field values response:', apiResponse);
     
-    // Handle the actual API response format: {data: {...}, status: "success"}
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    // Handle the actual API response format: {success: true, data: {...}}
+    if (apiResponse.success === true && apiResponse.data) {
       const values = apiResponse.data.values.map(item => item.value);
       console.log('Converted metadata field values:', values);
       return values;
@@ -281,8 +281,8 @@ export async function getAllFieldOptions(session?: any): Promise<Record<string, 
     const apiResponse = await response.json();
     console.log('Raw field options response:', apiResponse);
     
-    // Handle the actual API response format: {data: {...}, status: "success"}
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    // Handle the actual API response format: {success: true, data: {...}}
+    if (apiResponse.success === true && apiResponse.data) {
       const fieldOptions: Record<string, string[]> = {};
       
       // Convert the structured response to simple string arrays
@@ -332,8 +332,8 @@ export async function getDocumentStats(session?: any): Promise<DocumentStats> {
     const apiResponse = await response.json();
     console.log('Raw document stats response:', apiResponse);
     
-    // Handle the actual API response format: {data: {...}, status: "success"}
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    // Handle the actual API response format: {success: true, data: {...}}
+    if (apiResponse.success === true && apiResponse.data) {
       // Transform Fiber format to frontend format
       const stats: DocumentStats = {
         total_documents: apiResponse.data.total_documents || 0,
@@ -385,8 +385,8 @@ export async function getMetadataFields(session?: any): Promise<{ fields: Metada
     const apiResponse = await response.json();
     console.log('Raw metadata fields response:', apiResponse);
     
-    // Handle the actual API response format: {data: {...}, status: "success"}
-    if (apiResponse.status === 'success' && apiResponse.data) {
+    // Handle the actual API response format: {success: true, data: {...}}
+    if (apiResponse.success === true && apiResponse.data) {
       const fields = apiResponse.data.fields || [];
       console.log('Converted metadata fields:', fields);
       return { fields };

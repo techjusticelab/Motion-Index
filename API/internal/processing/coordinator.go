@@ -90,9 +90,9 @@ func (c *DocumentCoordinator) initializeServices() error {
 	
 	// Initialize classification service
 	classifierInstance, err := classifier.NewService(&classifier.Config{
-		Provider: "openai",
-		APIKey:   c.config.OpenAI.APIKey,
-		Model:    c.config.OpenAI.Model,
+		Provider: "ollama",
+		APIKey:   "", // Not needed for Ollama
+		Model:    c.config.AI.Ollama.Model,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize classifier: %w", err)

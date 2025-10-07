@@ -74,144 +74,24 @@ func (c *openaiClassifier) IsConfigured() bool {
 	return c.apiKey != "" && c.model != ""
 }
 
-// buildClassificationPrompt creates an enhanced prompt for OpenAI classification
+// buildClassificationPrompt creates an enhanced prompt for OpenAI classification using unified prompts
 func (c *openaiClassifier) buildClassificationPrompt(text string, metadata *DocumentMetadata) string {
-	// Dynamically adjust text truncation based on document characteristics
-	maxTextLength := c.calculateOptimalTextLength(metadata)
-	if len(text) > maxTextLength {
-		text = text[:maxTextLength] + "..."
+	// Use the unified prompt builder with OpenAI-specific configuration
+	config := DefaultPromptConfigs["openai"]
+	if config == nil {
+		config = &PromptConfig{
+			Model:         c.model,
+			MaxTextLength: c.calculateOptimalTextLength(metadata),
+			IncludeContext: true,
+			DetailLevel:   "comprehensive",
+		}
+	} else {
+		// Update max text length based on document characteristics
+		config.MaxTextLength = c.calculateOptimalTextLength(metadata)
 	}
-
-	// Generate document-specific analysis context
-	contextualPrompt := c.generateContextualPrompt(metadata)
-
-	prompt := fmt.Sprintf(`You are an expert legal document analyzer specializing in California criminal law and civil litigation. 
-
-Analyze the following legal document and provide comprehensive classification and extraction.
-
-Document metadata:
-- File name: %s
-- File type: %s
-- Word count: %d words
-- Page count: %d pages
-- Source system: %s
-
-%s
-
-CRITICAL INSTRUCTIONS:
-1. Classify document type from: %s
-2. Provide SUBSTANTIVE legal summary based on document type
-3. Extract ALL legal entities with high precision
-4. Identify case information, parties, and procedural context
-
-DOCUMENT-SPECIFIC SUMMARIZATION REQUIREMENTS:
-
-FOR MOTIONS (motion_to_suppress, motion_to_dismiss, etc.):
-- Motion type and specific relief sought (3-4 sentences)
-- Key legal arguments and constitutional/statutory authorities cited (2-3 sentences)
-- Factual basis and procedural posture (2 sentences)
-- Potential impact on case progression (1 sentence)
-
-FOR ORDERS/RULINGS (order, ruling, judgment):
-- Court's holding and primary reasoning (3-4 sentences)
-- Key legal precedents and statutes applied (2 sentences)
-- Impact on pending motions and case status (2 sentences)
-- Practical implications for parties (1-2 sentences)
-
-FOR BRIEFS (brief, reply):
-- Main legal arguments and theory of the case (4-5 sentences)
-- Factual background and procedural history (2-3 sentences)
-- Authorities relied upon and distinguishing cases (2-3 sentences)
-- Relief requested and strategic positioning (1-2 sentences)
-
-FOR PLEADINGS (complaint, answer, plea):
-- Claims/charges and factual allegations (3-4 sentences)
-- Legal theories and causes of action (2-3 sentences)
-- Defenses raised and procedural responses (2 sentences)
-- Stakes and potential outcomes (1 sentence)
-
-Document text:
-%s
-
-Respond with ONLY a JSON object in this exact format:
-{
-  "document_type": "<one of the available document types>",
-  "legal_category": "<primary legal area>",
-  "subject": "<concise 8-12 word subject line>",
-  "summary": "<comprehensive legal summary following document-specific requirements above>",
-  "confidence": <float between 0 and 1>,
-  "keywords": ["<key legal terms and procedural elements>"],
-  "legal_tags": ["<relevant legal doctrine tags>"],
-  "case_info": {
-    "case_number": "<case number if found>",
-    "case_name": "<case title if found>",
-    "case_type": "<criminal|civil|traffic|family>",
-    "docket": "<full docket number>"
-  },
-  "court_info": {
-    "court_name": "<court name>",
-    "jurisdiction": "<federal|state|local>",
-    "level": "<trial|appellate|supreme>",
-    "county": "<county if applicable>"
-  },
-  "parties": [
-    {
-      "name": "<party name>",
-      "role": "<defendant|plaintiff|appellant|respondent>",
-      "party_type": "<individual|corporation|government>"
-    }
-  ],
-  "attorneys": [
-    {
-      "name": "<attorney name>",
-      "role": "<defense|prosecution|counsel>",
-      "organization": "<law firm or agency>"
-    }
-  ],
-  "judge": {
-    "name": "<judge name>",
-    "title": "<title if specified>"
-  },
-  "charges": [
-    {
-      "statute": "<statute number>",
-      "description": "<charge description>",
-      "grade": "<felony|misdemeanor>",
-      "class": "<A|B|C>"
-    }
-  ],
-  "authorities": [
-    {
-      "citation": "<legal citation>",
-      "case_title": "<case name>",
-      "type": "<case_law|statute|regulation>",
-      "precedent": <true|false>
-    }
-  ],
-  "filing_date": "<YYYY-MM-DD format or null>",
-  "event_date": "<YYYY-MM-DD format or null>",
-  "status": "<filed|granted|denied|pending|served>",
-  "entities": [
-    {
-      "text": "<entity text>",
-      "type": "<PERSON|ORGANIZATION|LOCATION|DATE|MONEY|LEGAL_CITATION|CASE_NUMBER|STATUTE>",
-      "confidence": <float between 0 and 1>
-    }
-  ]
-}
-
-Use null for any field that cannot be determined from the document text.`,
-		getStringValue(metadata, "file_name"),
-		getStringValue(metadata, "file_type"),
-		getIntValue(metadata, "word_count"),
-		getIntValue(metadata, "page_count"),
-		getStringValue(metadata, "source_system"),
-		contextualPrompt,
-		strings.Join(GetDefaultDocumentTypes(), ", "),
-		text,
-	)
-
-	return prompt
+	
+	builder := NewPromptBuilder(config)
+	return builder.BuildClassificationPrompt(text, metadata)
 }
 
 // OpenAI API request/response structures
@@ -373,6 +253,41 @@ func (c *openaiClassifier) parseClassificationResponse(response string) (*Classi
 	}
 	if result.Confidence == 0 {
 		result.Confidence = 0.5 // Default confidence
+	}
+	
+	// Validate and parse dates using date extractor
+	dateExtractor := NewDateExtractor()
+	
+	// Validate each date field if present
+	if result.FilingDate != nil {
+		if !dateExtractor.validateDate(*result.FilingDate, "filing_date") {
+			log.Printf("[OPENAI] Invalid filing_date: %s, setting to nil", *result.FilingDate)
+			result.FilingDate = nil
+		}
+	}
+	if result.EventDate != nil {
+		if !dateExtractor.validateDate(*result.EventDate, "event_date") {
+			log.Printf("[OPENAI] Invalid event_date: %s, setting to nil", *result.EventDate)
+			result.EventDate = nil
+		}
+	}
+	if result.HearingDate != nil {
+		if !dateExtractor.validateDate(*result.HearingDate, "hearing_date") {
+			log.Printf("[OPENAI] Invalid hearing_date: %s, setting to nil", *result.HearingDate)
+			result.HearingDate = nil
+		}
+	}
+	if result.DecisionDate != nil {
+		if !dateExtractor.validateDate(*result.DecisionDate, "decision_date") {
+			log.Printf("[OPENAI] Invalid decision_date: %s, setting to nil", *result.DecisionDate)
+			result.DecisionDate = nil
+		}
+	}
+	if result.ServedDate != nil {
+		if !dateExtractor.validateDate(*result.ServedDate, "served_date") {
+			log.Printf("[OPENAI] Invalid served_date: %s, setting to nil", *result.ServedDate)
+			result.ServedDate = nil
+		}
 	}
 
 	// Validate document type against known types

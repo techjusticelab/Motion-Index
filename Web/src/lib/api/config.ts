@@ -1,6 +1,8 @@
 // API Configuration for production deployment
 import { PUBLIC_API_URL } from '$env/static/public';
 
+// Default to Go Fiber backend port - the Fiber backend requires PORT environment variable
+// For local development, the Fiber backend should be configured with PORT=8003
 export const API_URL = PUBLIC_API_URL || 'http://localhost:8003';
 
 /**
