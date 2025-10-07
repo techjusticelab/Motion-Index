@@ -131,8 +131,8 @@ export async function searchDocuments(params: SearchParams, session?: any): Prom
     const apiResponse = await response.json();
     console.log('Raw search response:', apiResponse);
     
-    // Handle the actual API response format: {success: true, data: {...}}
-    if (apiResponse.success === true && apiResponse.data) {
+    // Handle the actual API response format: {data: {...}} (no success wrapper)
+    if (apiResponse.data) {
       const searchResult = apiResponse.data;
       
       // Transform to frontend format
@@ -147,7 +147,8 @@ export async function searchDocuments(params: SearchParams, session?: any): Prom
       console.log('Converted search results:', transformedResults);
       return transformedResults;
     } else {
-      throw new Error('Search request failed - invalid response format');
+      console.error('Invalid search response format:', apiResponse);
+      throw new Error('Search request failed - response missing data field');
     }
   } catch (error) {
     console.error('Error searching documents:', error);
@@ -251,13 +252,14 @@ export async function getMetadataFieldValues(
     const apiResponse = await response.json();
     console.log('Raw metadata field values response:', apiResponse);
     
-    // Handle the actual API response format: {success: true, data: {...}}
-    if (apiResponse.success === true && apiResponse.data) {
+    // Handle the actual API response format: {data: {...}} (no success wrapper)
+    if (apiResponse.data) {
       const values = apiResponse.data.values.map(item => item.value);
       console.log('Converted metadata field values:', values);
       return values;
     } else {
-      throw new Error('Failed to get metadata field values - invalid response format');
+      console.error('Invalid metadata field values response format:', apiResponse);
+      throw new Error('Failed to get metadata field values - response missing data field');
     }
   } catch (error) {
     console.error('Error fetching metadata field values:', error);
@@ -281,8 +283,8 @@ export async function getAllFieldOptions(session?: any): Promise<Record<string, 
     const apiResponse = await response.json();
     console.log('Raw field options response:', apiResponse);
     
-    // Handle the actual API response format: {success: true, data: {...}}
-    if (apiResponse.success === true && apiResponse.data) {
+    // Handle the actual API response format: {data: {...}} (no success wrapper)
+    if (apiResponse.data) {
       const fieldOptions: Record<string, string[]> = {};
       
       // Convert the structured response to simple string arrays
@@ -308,7 +310,8 @@ export async function getAllFieldOptions(session?: any): Promise<Record<string, 
       console.log('Converted field options:', fieldOptions);
       return fieldOptions;
     } else {
-      throw new Error('Failed to get field options - invalid response format');
+      console.error('Invalid field options response format:', apiResponse);
+      throw new Error('Failed to get field options - response missing data field');
     }
   } catch (error) {
     console.error('Error fetching field options:', error);
@@ -332,8 +335,8 @@ export async function getDocumentStats(session?: any): Promise<DocumentStats> {
     const apiResponse = await response.json();
     console.log('Raw document stats response:', apiResponse);
     
-    // Handle the actual API response format: {success: true, data: {...}}
-    if (apiResponse.success === true && apiResponse.data) {
+    // Handle the actual API response format: {data: {...}} (no success wrapper)
+    if (apiResponse.data) {
       // Transform Fiber format to frontend format
       const stats: DocumentStats = {
         total_documents: apiResponse.data.total_documents || 0,
@@ -361,7 +364,8 @@ export async function getDocumentStats(session?: any): Promise<DocumentStats> {
       console.log('Converted document stats:', stats);
       return stats;
     } else {
-      throw new Error('Failed to get document statistics - invalid response format');
+      console.error('Invalid document stats response format:', apiResponse);
+      throw new Error('Failed to get document statistics - response missing data field');
     }
   } catch (error) {
     console.error('Error fetching document stats:', error);
@@ -385,13 +389,14 @@ export async function getMetadataFields(session?: any): Promise<{ fields: Metada
     const apiResponse = await response.json();
     console.log('Raw metadata fields response:', apiResponse);
     
-    // Handle the actual API response format: {success: true, data: {...}}
-    if (apiResponse.success === true && apiResponse.data) {
+    // Handle the actual API response format: {data: {...}} (no success wrapper)
+    if (apiResponse.data) {
       const fields = apiResponse.data.fields || [];
       console.log('Converted metadata fields:', fields);
       return { fields };
     } else {
-      throw new Error('Failed to get metadata fields - invalid response format');
+      console.error('Invalid metadata fields response format:', apiResponse);
+      throw new Error('Failed to get metadata fields - response missing data field');
     }
   } catch (error) {
     console.error('Error fetching metadata fields:', error);

@@ -297,7 +297,7 @@
 					<!-- Date Type Selector -->
 					<div class="mb-2">
 						<select
-							bind:value={searchParams.date_field_type || 'created_at'}
+							bind:value={searchParams.date_field_type}
 							class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-xs shadow-sm focus:border-primary-900 focus:ring-primary-900"
 						>
 							<option value="created_at">Document Created</option>
